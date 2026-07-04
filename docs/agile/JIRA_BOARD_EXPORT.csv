@@ -1,0 +1,9 @@
+Key,Type,Summary,Epic,Sprint,Assignee,Status,Points
+US-01,Story,JWT and RBAC,E1,1,Hessam,Done,5
+US-02,Story,Venue and event catalog,E2,1,Hessam,Done,8
+US-03,Story,Atomic seat locking,E3,2,Hessam,Done,13
+US-04,Story,Payment compensation,E4,2,Hessam,Done,13
+US-05,Story,Seat map and checkout,E5,2,Pourya,Done,8
+US-06,Story,Realtime and notifications,E6,3,Hessam,Done,8
+US-07,Story,Waiting room,E7,3,Hessam,Done,8
+US-08,Story,QA and delivery,E8,3,Pourya,Done,8

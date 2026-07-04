@@ -1,0 +1,14 @@
+@startuml
+participant "Domain service" as D
+queue RabbitMQ
+participant "Notification worker" as N
+database PostgreSQL
+participant "Email/SMS adapter" as E
+D -> RabbitMQ: integration event
+RabbitMQ -> N: durable delivery
+N -> PostgreSQL: persist notification
+N -> E: simulated send
+E --> N: result
+N -> PostgreSQL: mark sent
+N -> RabbitMQ: ack
+@enduml

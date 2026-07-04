@@ -1,0 +1,14 @@
+@startuml
+[Web/Mobile] --> [API Gateway]
+[API Gateway] --> [Identity Service]
+[API Gateway] --> [Catalog Service]
+[API Gateway] --> [Reservation Service]
+[API Gateway] --> [Billing Service]
+[API Gateway] --> [Waiting Room]
+[Reservation Service] --> database PostgreSQL
+[Reservation Service] --> database Redis
+[Billing Service] --> [External Payment Gateway]
+[Billing Service] --> queue RabbitMQ
+RabbitMQ --> [Notification Service]
+[Catalog Service] --> PostgreSQL
+@enduml

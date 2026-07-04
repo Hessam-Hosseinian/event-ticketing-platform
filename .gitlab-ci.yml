@@ -1,0 +1,10 @@
+stages: [install, lint, test, coverage, build, docker-build, security-scan, deploy-preview]
+.node: {image: node:22-alpine, cache: {paths: [backend/node_modules/, frontend/node_modules/]}}
+install: {extends: .node, stage: install, script: ["cd backend && npm ci","cd ../frontend && npm ci"], artifacts: {paths: [backend/node_modules/,frontend/node_modules/], expire_in: 1h}}
+lint: {extends: .node, stage: lint, script: ["cd backend && npm run lint","cd ../frontend && npm run lint"]}
+test: {extends: .node, stage: test, script: ["cd backend && npm test -- --runInBand"]}
+coverage: {extends: .node, stage: coverage, script: ["cd backend && npm run test:cov"], coverage: '/All files[^|]*\\|[^|]*\\s+([\\d\\.]+)/', artifacts: {paths: [backend/coverage/]}}
+build: {extends: .node, stage: build, script: ["cd backend && npm run build","cd ../frontend && npm run build"]}
+docker-build: {image: docker:27, stage: docker-build, services: [docker:27-dind], script: ["docker build -t ticketing-backend:$CI_COMMIT_SHA backend","docker build -t ticketing-frontend:$CI_COMMIT_SHA frontend"]}
+security-scan: {extends: .node, stage: security-scan, script: ["cd backend && npm audit --audit-level=high || true","cd ../frontend && npm audit --audit-level=high || true"]}
+deploy-preview: {stage: deploy-preview, script: ["echo 'Set KUBE_CONFIG and image registry variables to deploy preview'"], when: manual, environment: {name: "preview/$CI_COMMIT_REF_SLUG"}}

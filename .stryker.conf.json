@@ -1,0 +1,1 @@
+{"mutate":["backend/src/**/*.ts","!backend/src/main.ts","!backend/src/**/*.spec.ts"],"testRunner":"jest","coverageAnalysis":"perTest","reporters":["html","clear-text","progress"]}

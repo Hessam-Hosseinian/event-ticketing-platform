@@ -1,0 +1,16 @@
+@startuml
+start
+:Login; :Search event; :Join queue;
+:Choose seats; :Acquire Redis locks;
+if (all acquired?) then (yes)
+ :Checkout;
+ if (outcome?) then (success)
+  :Book seats; :Issue ticket;
+ else (failure/timeout/cancel)
+  :Compensate; :Release locks;
+ endif
+else (no)
+ :Show unavailable;
+endif
+stop
+@enduml

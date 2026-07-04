@@ -1,0 +1,28 @@
+@startuml
+actor Customer
+participant "Waiting Room" as W
+participant API
+database PostgreSQL as DB
+collections Redis
+participant "Payment Gateway" as PG
+queue RabbitMQ
+Customer -> W: join(event)
+W --> Customer: admission token / position
+Customer -> API: search, select seat
+API -> Redis: SET lock key NX EX 600
+Redis --> API: acquired
+API -> DB: create PENDING reservation
+Customer -> API: checkout
+API -> PG: authorize
+alt success
+ PG --> API: success
+ API -> DB: CONFIRMED + BOOKED + tickets
+ API -> Redis: release locks
+ API -> RabbitMQ: PaymentSucceeded, TicketIssued
+else failure or timeout
+ PG --> API: failed/timeout
+ API -> DB: CANCELLED/EXPIRED
+ API -> Redis: release all locks
+ API -> RabbitMQ: PaymentFailed
+end
+@enduml

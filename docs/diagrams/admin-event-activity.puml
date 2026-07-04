@@ -1,0 +1,12 @@
+@startuml
+start
+:Authenticate organizer/admin;
+:Create venue; :Define sectors, rows and seats;
+:Create pricing categories; :Create event;
+if (validation passes?) then (yes)
+ :Publish event;
+else (no)
+ :Correct schedule/layout;
+endif
+stop
+@enduml

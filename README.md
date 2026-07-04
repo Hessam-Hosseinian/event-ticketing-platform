@@ -21,11 +21,18 @@ locks, and RabbitMQ carries integration events. The React client consumes REST a
 ```bash
 cp backend/.env.example backend/.env
 docker compose up --build
+docker compose exec backend node dist/seed.js
 ```
 
 - UI: http://localhost:5173
 - Swagger: http://localhost:3000/api/docs
 - RabbitMQ: http://localhost:15672 (`guest` / `guest`)
+
+Demo accounts all use `Password123!`:
+
+- `customer@narm.local`
+- `organizer@narm.local`
+- `admin@narm.local`
 
 Local development:
 
@@ -45,3 +52,5 @@ Failure or timeout compensates by cancelling the reservation and releasing all l
 
 See [API demo](docs/submission/API_DEMO_GUIDE.md), [architecture decisions](docs/architecture/ARCHITECTURE_DECISIONS.md),
 [diagrams](docs/diagrams/EXPORT_DIAGRAMS.md), and [defense guide](FINAL_DEFENSE_GUIDE.md).
+
+The ready-to-submit diagrams are in `docs/diagrams/export` as vector SVG and PDF files.

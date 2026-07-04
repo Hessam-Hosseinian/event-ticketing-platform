@@ -1,14 +1,41 @@
 @startuml
-class User { id: UUID; email: string; role: Role }
-class Venue { id: UUID; name: string; city: string }
+class User {
+  id: UUID
+  email: string
+  role: Role
+}
+class Venue {
+  id: UUID
+  name: string
+  city: string
+}
 class Sector
-class Seat { row: string; number: int }
-class Event { startsAt: Date; published: bool }
-class PricingCategory { price: decimal }
-class Reservation { state; expiresAt }
-class ReservationSeat { state }
-class Payment { state; reference }
-class Ticket { token; qrHash }
+class Seat {
+  row: string
+  number: int
+}
+class Event {
+  startsAt: Date
+  published: bool
+}
+class PricingCategory {
+  price: decimal
+}
+class Reservation {
+  state
+  expiresAt
+}
+class ReservationSeat {
+  state
+}
+class Payment {
+  state
+  reference
+}
+class Ticket {
+  token
+  qrHash
+}
 class Notification
 Venue "1" *-- "*" Sector
 Sector "1" *-- "*" Seat

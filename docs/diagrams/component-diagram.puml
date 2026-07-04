@@ -5,10 +5,13 @@
 [API Gateway] --> [Reservation Service]
 [API Gateway] --> [Billing Service]
 [API Gateway] --> [Waiting Room]
-[Reservation Service] --> database PostgreSQL
-[Reservation Service] --> database Redis
+database PostgreSQL as PG
+database Redis as RD
+queue RabbitMQ as MQ
+[Reservation Service] --> PG
+[Reservation Service] --> RD
 [Billing Service] --> [External Payment Gateway]
-[Billing Service] --> queue RabbitMQ
-RabbitMQ --> [Notification Service]
-[Catalog Service] --> PostgreSQL
+[Billing Service] --> MQ
+MQ --> [Notification Service]
+[Catalog Service] --> PG
 @enduml

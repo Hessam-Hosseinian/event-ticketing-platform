@@ -1,0 +1,21 @@
+@startuml
+node "Load Balancer / Ingress" as LB
+node "Kubernetes cluster" {
+ node "Frontend pods (2+)" as F
+ node "Backend pods (3..20 HPA)" as B
+ node "Worker pods" as W
+}
+database "PostgreSQL" as P
+database "Redis" as R
+queue "RabbitMQ" as Q
+node Prometheus
+node Grafana
+LB --> F
+LB --> B
+B --> P
+B --> R
+B --> Q
+Q --> W
+Prometheus --> B
+Grafana --> Prometheus
+@enduml

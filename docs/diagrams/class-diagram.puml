@@ -1,0 +1,25 @@
+@startuml
+class User { id: UUID; email: string; role: Role }
+class Venue { id: UUID; name: string; city: string }
+class Sector
+class Seat { row: string; number: int }
+class Event { startsAt: Date; published: bool }
+class PricingCategory { price: decimal }
+class Reservation { state; expiresAt }
+class ReservationSeat { state }
+class Payment { state; reference }
+class Ticket { token; qrHash }
+class Notification
+Venue "1" *-- "*" Sector
+Sector "1" *-- "*" Seat
+Venue "1" -- "*" Event
+User "1" -- "*" Event : organizes
+Event "1" *-- "*" PricingCategory
+User "1" -- "*" Reservation
+Event "1" -- "*" Reservation
+Reservation "1" *-- "*" ReservationSeat
+Seat "1" -- "*" ReservationSeat
+Reservation "1" -- "0..1" Payment
+Reservation "1" -- "*" Ticket
+User "1" -- "*" Notification
+@enduml

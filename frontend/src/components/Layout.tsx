@@ -43,7 +43,7 @@ function Layout({ children }: { children: React.ReactNode }) {
           {session ? (
             <>
               <span className="user-pill">
-                <CircleUserRound size={17} />
+                <CircleUserRound size={24} />
                 {session.email}
               </span>
               <button className="icon-button" title="خروج" onClick={signOut}>

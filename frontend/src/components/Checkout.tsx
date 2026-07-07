@@ -56,7 +56,10 @@ function Checkout() {
         <span className="eyebrow">درگاه شبیه‌سازی‌شده</span>
         <h1>تکمیل پرداخت</h1>
         <div className="payment-summary">
-          <span>{reservation.eventTitle ?? "رزرو بلیت"}</span>
+          <span>
+            {reservation.seats.length.toLocaleString("fa-IR")} ⨯{" "}
+            {reservation.eventTitle ?? "رزرو بلیت"}
+          </span>
           <strong>
             {Number(reservation.total ?? 0).toLocaleString("fa-IR")} ریال
           </strong>
@@ -72,7 +75,7 @@ function Checkout() {
         </label>
         <div className="fake-card">
           <small>شماره کارت آزمایشی</small>
-          <b>۶۲۱۹ •••• •••• ۱۲۳۴</b>
+          <b>۶۲۱۹ **** **** ۱۲۳۴</b>
           <div>
             <span>
               CVV2

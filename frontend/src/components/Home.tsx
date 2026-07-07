@@ -54,7 +54,11 @@ function Home() {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="جست‌وجوی نام رویداد..."
           />
-          <select value={genre} onChange={(e) => setGenre(e.target.value)}>
+          <select
+            id="genre-select"
+            value={genre}
+            onChange={(e) => setGenre(e.target.value)}
+          >
             <option value="">همه دسته‌ها</option>
             <option value="Music">موسیقی</option>
             <option value="Theatre">تئاتر</option>
@@ -62,6 +66,7 @@ function Home() {
             <option value="Conference">همایش</option>
           </select>
           <input
+            id="city-filter"
             className="city-filter"
             value={city}
             onChange={(e) => setCity(e.target.value)}

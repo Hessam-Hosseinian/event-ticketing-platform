@@ -1,1 +1,0 @@
-describe('seat locking invariant',()=>{it('uses one deterministic key per event and seat',()=>{expect(`lock:event:e1:seat:s1`).toBe('lock:event:e1:seat:s1')});it('defines a ten minute default TTL',()=>{expect(Number(process.env.LOCK_TTL_SECONDS??600)).toBe(600)})});

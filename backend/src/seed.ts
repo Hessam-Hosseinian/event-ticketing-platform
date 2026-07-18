@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { Logger } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { DataSource } from 'typeorm';
 import { Event, Notification, Payment, PricingCategory, Reservation, ReservationSeat, Role, Seat, Sector, Ticket, User, Venue, WaitingRoomEntry } from './entities';
@@ -31,7 +32,7 @@ async function seed(){
     ] as const;
     for(const [title,genre,description,venueIndex,days] of samples){const venue=madeVenues[venueIndex];const event=await events.save(events.create({organizerId:organizer.id,venueId:venue.id,title,genre,description,city:venue.city,startsAt:new Date(Date.now()+days*86400000),published:true}));await prices.save(prices.create({eventId:event.id,name:'استاندارد',price:2500000}));}
   }
-  console.log('Seed complete: customer@narm.local / Password123!');
+  Logger.log('Seed complete: customer@narm.local / Password123!', 'Seed');
   await db.destroy();
 }
 seed().catch(error=>{console.error(error);process.exit(1)});

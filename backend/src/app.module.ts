@@ -1,67 +1,96 @@
-import { Body, ConflictException, Controller, Get, Module, NotFoundException, OnApplicationShutdown, OnModuleInit, Param, Patch, Post, Query, Req, UnauthorizedException, UseGuards } from '@nestjs/common';
-import { JwtModule, JwtService } from '@nestjs/jwt';
-import { TypeOrmModule, InjectRepository } from '@nestjs/typeorm';
-import { Repository, ILike, In } from 'typeorm';
-import * as bcrypt from 'bcrypt';
-import Redis from 'ioredis';
-import { randomBytes, randomUUID, createHash } from 'crypto';
-import { connect, Channel, ChannelModel } from 'amqplib';
-import { WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
-import { Server } from 'socket.io';
-import { Event, Notification, Payment, PaymentState, PricingCategory, Reservation, ReservationSeat, ReservationState, Role, Seat, SeatState, Sector, Ticket, User, Venue, WaitingRoomEntry } from './entities';
-import { AuthGuard, Roles } from './security';
+import { Module } from '@nestjs/common';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { JwtModule } from '@nestjs/jwt';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuthController, UsersController } from './auth.controller';
+import { BrokerService } from './broker.service';
+import { EventsController, VenuesController } from './catalog.controller';
+import {
+  Event,
+  Notification,
+  Payment,
+  PricingCategory,
+  Reservation,
+  ReservationSeat,
+  Seat,
+  Sector,
+  Ticket,
+  User,
+  Venue,
+  WaitingRoomEntry,
+} from './entities';
+import { HealthController, MetricsInterceptor, MetricsService } from './health.controller';
+import { LockService } from './lock.service';
+import { PaymentsController } from './payments.controller';
+import { RedisService, redisProvider } from './redis.service';
+import { ExpiryService, ReservationsController } from './reservations.controller';
+import { UpdatesGateway } from './realtime.gateway';
+import { AuthGuard } from './security';
+import { NotificationsController, TicketsController } from './tickets.controller';
+import { WaitingRoomController, WaitingRoomService } from './waiting-room.controller';
 
-@WebSocketGateway({cors:{origin:'*'}}) export class UpdatesGateway { @WebSocketServer() server!:Server; emit(name:string,data:unknown){this.server?.emit(name,data);} }
-@Controller('auth') class AuthController {
- constructor(@InjectRepository(User) private users:Repository<User>,private jwt:JwtService){}
- @Post('register') async register(@Body() b:{email:string,password:string}){const user=this.users.create({email:b.email,passwordHash:await bcrypt.hash(b.password,12),role:Role.CUSTOMER}); await this.users.save(user); return {id:user.id,email:user.email,role:user.role};}
- @Post('login') async login(@Body() b:{email:string,password:string}){const u=await this.users.findOneBy({email:b.email}); if(!u||!await bcrypt.compare(b.password,u.passwordHash)) throw new UnauthorizedException('ایمیل یا رمز عبور نادرست است'); return {accessToken:this.jwt.sign({sub:u.id,email:u.email,role:u.role}),role:u.role,user:{id:u.id,email:u.email,role:u.role}};}
- @Get('me') @UseGuards(AuthGuard) me(@Req() r:any){return r.user;}
-}
-@Controller('users') @UseGuards(AuthGuard) class UsersController { constructor(@InjectRepository(User)private repo:Repository<User>){} @Get() @Roles(Role.ADMIN) list(){return this.repo.find({select:['id','email','role']});} @Patch(':id/role') @Roles(Role.ADMIN) role(@Param('id')id:string,@Body('role')role:Role){return this.repo.update(id,{role});} }
-@Controller('venues') class VenuesController {
- constructor(@InjectRepository(Venue)private venues:Repository<Venue>,@InjectRepository(Sector)private sectors:Repository<Sector>,@InjectRepository(Seat)private seats:Repository<Seat>){}
- @Get() list(){return this.venues.find();} @Post() @UseGuards(AuthGuard) @Roles(Role.ORGANIZER,Role.ADMIN) create(@Body()b:Partial<Venue>){return this.venues.save(this.venues.create(b));}
- @Post(':id/sectors') @UseGuards(AuthGuard) @Roles(Role.ORGANIZER,Role.ADMIN) async sector(@Param('id')venueId:string,@Body()b:{name:string;rows:number;seatsPerRow:number}){const s=await this.sectors.save(this.sectors.create({venueId,name:b.name})); const seats=[];for(let r=0;r<b.rows;r++)for(let n=1;n<=b.seatsPerRow;n++)seats.push(this.seats.create({sectorId:s.id,row:String.fromCharCode(65+r),number:n}));await this.seats.save(seats);return {...s,seats};}
- @Get(':id/layout') async layout(@Param('id')id:string){const sectors=await this.sectors.findBy({venueId:id});return Promise.all(sectors.map(async s=>({...s,seats:await this.seats.findBy({sectorId:s.id})})));}
-}
-@Controller('events') class EventsController {
- constructor(@InjectRepository(Event)private repo:Repository<Event>,@InjectRepository(Venue)private venues:Repository<Venue>,@InjectRepository(Sector)private sectors:Repository<Sector>,@InjectRepository(Seat)private seats:Repository<Seat>,@InjectRepository(PricingCategory)private prices:Repository<PricingCategory>,@InjectRepository(ReservationSeat)private rs:Repository<ReservationSeat>){}
- @Get() list(@Query('q')q?:string,@Query('genre')genre?:string,@Query('city')city?:string){return this.repo.find({where:{published:true,...(q?{title:ILike(`%${q}%`)}:{}),...(genre?{genre}:{}),...(city?{city}:{})}});}
- @Get(':id') async detail(@Param('id')id:string){const event=await this.repo.findOneBy({id});if(!event)throw new NotFoundException('رویداد پیدا نشد');const venue=await this.venues.findOneBy({id:event.venueId});const sectors=await this.sectors.findBy({venueId:event.venueId});const seats=sectors.length?await this.seats.findBy({sectorId:In(sectors.map(s=>s.id))}):[];const states=await this.rs.findBy({eventId:id});const bySeat=new Map(states.map(x=>[x.seatId,x.state]));const pricing=await this.prices.findOneBy({eventId:id});return {...event,venue,inventory:seats.map(seat=>({id:seat.id,seatId:seat.id,row:seat.row,number:seat.number,state:bySeat.get(seat.id)??SeatState.AVAILABLE,price:Number(pricing?.price??2500000),currency:'ریال'}))};}
- @Post() @UseGuards(AuthGuard) @Roles(Role.ORGANIZER,Role.ADMIN) create(@Body()b:Partial<Event>){return this.repo.save(this.repo.create(b));} @Patch(':id') @UseGuards(AuthGuard) @Roles(Role.ORGANIZER,Role.ADMIN) update(@Param('id')id:string,@Body()b:Partial<Event>){return this.repo.update(id,b);} @Post(':id/publish') @UseGuards(AuthGuard) @Roles(Role.ORGANIZER,Role.ADMIN) publish(@Param('id')id:string){return this.repo.update(id,{published:true});}
- @Get(':id/seats') async map(@Param('id')eventId:string){return this.rs.findBy({eventId});}
-}
-class LockService {
- private redis=new Redis(process.env.REDIS_URL??'redis://localhost:6379',{lazyConnect:true,maxRetriesPerRequest:1});
- key(e:string,s:string){return `lock:event:${e}:seat:${s}`;}
- async acquire(e:string,seats:string[],owner:string){const got:string[]=[];try{if(this.redis.status==='wait')await this.redis.connect();for(const s of seats){const ok=await this.redis.set(this.key(e,s),owner,'EX',Number(process.env.LOCK_TTL_SECONDS??600),'NX');if(!ok)throw new Error(`Seat ${s} unavailable`);got.push(s);}return got;}catch(err){await Promise.all(got.map(s=>this.redis.del(this.key(e,s))));throw err;}}
- async release(e:string,seats:string[],owner:string){const script='if redis.call(\"get\",KEYS[1]) == ARGV[1] then return redis.call(\"del\",KEYS[1]) else return 0 end';await Promise.all(seats.map(s=>this.redis.eval(script,1,this.key(e,s),owner)));}
-}
-class BrokerService implements OnModuleInit {
- private connection?:ChannelModel; private channel?:Channel;
- async onModuleInit(){try{const connection=await connect(process.env.RABBITMQ_URL??'amqp://localhost');const channel=await connection.createChannel();this.connection=connection;this.channel=channel;await channel.assertExchange('ticketing.events','topic',{durable:true});const q=await channel.assertQueue('notifications',{durable:true});await channel.bindQueue(q.queue,'ticketing.events','#');await channel.consume(q.queue,msg=>{if(!msg)return;console.log('[notification-worker]',msg.fields.routingKey,msg.content.toString());channel.ack(msg);});}catch{console.warn('RabbitMQ unavailable; API continues and events are logged');}}
- publish(type:string,payload:unknown){const body=Buffer.from(JSON.stringify({id:randomBytes(12).toString('hex'),type,occurredAt:new Date(),payload}));if(this.channel)this.channel.publish('ticketing.events',type,body,{persistent:true});else console.log('[domain-event]',type,payload);}
-}
-@Controller('reservations') @UseGuards(AuthGuard) class ReservationsController {
- constructor(@InjectRepository(Reservation)private repo:Repository<Reservation>,@InjectRepository(ReservationSeat)private rs:Repository<ReservationSeat>,private locks:LockService,private ws:UpdatesGateway,private broker:BrokerService){}
- @Post() async create(@Req()r:any,@Body()b:{eventId:string;seatIds:string[]}){if(!b.seatIds?.length||b.seatIds.length>10)throw new ConflictException('بین ۱ تا ۱۰ صندلی انتخاب کنید');const id=randomUUID();try{await this.locks.acquire(b.eventId,b.seatIds,id);}catch{throw new ConflictException('حداقل یکی از صندلی‌ها هم‌اکنون در اختیار کاربر دیگری است')}try{const existing=await this.rs.findBy({eventId:b.eventId,seatId:In(b.seatIds)});if(existing.length)throw new ConflictException('صندلی انتخاب‌شده آزاد نیست');const reservation=await this.repo.save(this.repo.create({id,userId:r.user.sub,eventId:b.eventId,state:ReservationState.PENDING,expiresAt:new Date(Date.now()+600000)}));await this.rs.save(b.seatIds.map(seatId=>this.rs.create({reservationId:reservation.id,eventId:b.eventId,seatId,state:SeatState.LOCKED})));this.ws.emit('reservation.created',reservation);this.ws.emit('seat.status.changed',{eventId:b.eventId,seatIds:b.seatIds,state:SeatState.LOCKED});this.broker.publish('ReservationCreated',reservation);return reservation;}catch(e){await this.locks.release(b.eventId,b.seatIds,id);throw e;}}
- @Get(':id') get(@Param('id')id:string){return this.repo.findOneBy({id});}
- @Post(':id/cancel') async cancel(@Req()request:any,@Param('id')id:string){const r=await this.repo.findOneByOrFail({id});if(r.userId!==request.user.sub&&request.user.role!==Role.ADMIN)throw new UnauthorizedException();const seats=await this.rs.findBy({reservationId:id});await this.locks.release(r.eventId,seats.map(x=>x.seatId),r.id);await this.rs.remove(seats);r.state=ReservationState.CANCELLED;return this.repo.save(r);}
-}
-@Controller('payments') @UseGuards(AuthGuard) class PaymentsController {
- constructor(@InjectRepository(Payment)private pay:Repository<Payment>,@InjectRepository(Reservation)private res:Repository<Reservation>,@InjectRepository(ReservationSeat)private rs:Repository<ReservationSeat>,@InjectRepository(Ticket)private tickets:Repository<Ticket>,private locks:LockService,private ws:UpdatesGateway,private broker:BrokerService){}
- @Post() async start(@Req()request:any,@Body('reservationId')reservationId:string){const reservation=await this.res.findOneByOrFail({id:reservationId});if(reservation.userId!==request.user.sub)throw new UnauthorizedException();const existing=await this.pay.findOneBy({reservationId});if(existing)return existing;const p=await this.pay.save(this.pay.create({reservationId,state:PaymentState.PENDING}));this.ws.emit('payment.started',p);this.broker.publish('PaymentStarted',p);return p;}
- @Post(':id/simulate/:outcome') async simulate(@Req()request:any,@Param('id')id:string,@Param('outcome')outcome:string){const p=await this.pay.findOneByOrFail({id});const r=await this.res.findOneByOrFail({id:p.reservationId});if(r.userId!==request.user.sub)throw new UnauthorizedException();if(p.state!==PaymentState.PENDING)return {payment:p,reservation:r,tickets:await this.tickets.findBy({reservationId:r.id})};if(r.expiresAt<=new Date())outcome='timeout';const seats=await this.rs.findBy({reservationId:r.id});let issued:Ticket[]=[];if(outcome==='success'){p.state=PaymentState.SUCCESS;p.reference=randomBytes(8).toString('hex');r.state=ReservationState.CONFIRMED;seats.forEach(s=>s.state=SeatState.BOOKED);await this.rs.save(seats);await this.locks.release(r.eventId,seats.map(s=>s.seatId),r.id);issued=await this.tickets.save(seats.map(s=>{const token=randomBytes(24).toString('hex');return this.tickets.create({reservationId:r.id,seatId:s.seatId,token,qrHash:createHash('sha256').update(token).digest('hex')});}));this.ws.emit('ticket.issued',issued);this.ws.emit('seat.status.changed',{eventId:r.eventId,seatIds:seats.map(s=>s.seatId),state:SeatState.BOOKED});this.broker.publish('PaymentSucceeded',p);this.broker.publish('TicketIssued',issued);}else{p.state=outcome==='timeout'?PaymentState.TIMEOUT:PaymentState.FAILED;r.state=outcome==='timeout'?ReservationState.EXPIRED:ReservationState.CANCELLED;await this.locks.release(r.eventId,seats.map(s=>s.seatId),r.id);await this.rs.remove(seats);this.ws.emit('payment.failed',p);this.ws.emit('seat.status.changed',{eventId:r.eventId,seatIds:seats.map(s=>s.seatId),state:SeatState.AVAILABLE});this.broker.publish('PaymentFailed',p);}await this.res.save(r);await this.pay.save(p);return {payment:p,reservation:r,tickets:issued};}
-}
-@Controller('tickets') class TicketsController { constructor(@InjectRepository(Ticket)private repo:Repository<Ticket>){} @Get('reservation/:id') @UseGuards(AuthGuard) byReservation(@Param('id')reservationId:string){return this.repo.findBy({reservationId});} @Get('verify/:token') async verify(@Param('token')token:string){const ticket=await this.repo.findOneBy({token});return {valid:!!ticket,ticket};}}
-@Controller('waiting-room') class WaitingController { constructor(@InjectRepository(WaitingRoomEntry)private repo:Repository<WaitingRoomEntry>){} @Post(':eventId/join')async join(@Param('eventId')eventId:string,@Body('userId')userId:string){const position=await this.repo.countBy({eventId})+1;return this.repo.save(this.repo.create({eventId,userId,position,admissionToken:position<=100?randomBytes(20).toString('hex'):undefined}));}@Get(':id')status(@Param('id')id:string){return this.repo.findOneBy({id});}}
-class ExpiryService implements OnModuleInit,OnApplicationShutdown{
- private timer?:NodeJS.Timeout;
- constructor(@InjectRepository(Reservation)private reservations:Repository<Reservation>,@InjectRepository(ReservationSeat)private seats:Repository<ReservationSeat>,private locks:LockService,private ws:UpdatesGateway,private broker:BrokerService){}
- onModuleInit(){this.timer=setInterval(()=>void this.expire(),30000);this.timer.unref();}
- onApplicationShutdown(){if(this.timer)clearInterval(this.timer);}
- async expire(){const stale=await this.reservations.createQueryBuilder('r').where('r.state = :state',{state:ReservationState.PENDING}).andWhere('r.expiresAt <= :now',{now:new Date()}).getMany();for(const reservation of stale){const seats=await this.seats.findBy({reservationId:reservation.id});reservation.state=ReservationState.EXPIRED;await this.reservations.save(reservation);await this.seats.remove(seats);await this.locks.release(reservation.eventId,seats.map(s=>s.seatId),reservation.id);this.ws.emit('reservation.expired',reservation);this.ws.emit('seat.status.changed',{eventId:reservation.eventId,seatIds:seats.map(s=>s.seatId),state:SeatState.AVAILABLE});this.broker.publish('ReservationExpired',reservation);}}
-}
-const entities=[User,Venue,Sector,Seat,Event,PricingCategory,Reservation,ReservationSeat,Payment,Ticket,Notification,WaitingRoomEntry];
-@Module({imports:[JwtModule.register({global:true,secret:process.env.JWT_SECRET??'dev-secret',signOptions:{expiresIn:'1h'}}),TypeOrmModule.forRoot({type:'postgres',url:process.env.DATABASE_URL??'postgres://ticketing:ticketing@localhost:5432/ticketing',entities,synchronize:true}),TypeOrmModule.forFeature(entities)],controllers:[AuthController,UsersController,VenuesController,EventsController,ReservationsController,PaymentsController,TicketsController,WaitingController],providers:[AuthGuard,LockService,BrokerService,UpdatesGateway,ExpiryService]}) export class AppModule {}
+const entities = [
+  User,
+  Venue,
+  Sector,
+  Seat,
+  Event,
+  PricingCategory,
+  Reservation,
+  ReservationSeat,
+  Payment,
+  Ticket,
+  Notification,
+  WaitingRoomEntry,
+];
+
+@Module({
+  imports: [
+    JwtModule.register({
+      global: true,
+      secret: process.env.JWT_SECRET ?? 'development-secret-change-me',
+      signOptions: { expiresIn: '1h', issuer: 'ticketing-api', audience: 'ticketing-web' },
+      verifyOptions: { issuer: 'ticketing-api', audience: 'ticketing-web' },
+    }),
+    ThrottlerModule.forRoot([{
+      ttl: Number(process.env.RATE_LIMIT_WINDOW_MS ?? 60000),
+      limit: Number(process.env.RATE_LIMIT_REQUESTS ?? 120),
+    }]),
+    TypeOrmModule.forRoot({
+      type: 'postgres',
+      url: process.env.DATABASE_URL ?? 'postgres://ticketing:ticketing@localhost:5432/ticketing',
+      entities,
+      synchronize: process.env.DB_SYNCHRONIZE === 'true' || process.env.NODE_ENV !== 'production',
+      ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: true } : false,
+      logging: process.env.DB_LOGGING === 'true',
+    }),
+    TypeOrmModule.forFeature(entities),
+  ],
+  controllers: [
+    AuthController,
+    UsersController,
+    VenuesController,
+    EventsController,
+    ReservationsController,
+    PaymentsController,
+    TicketsController,
+    NotificationsController,
+    WaitingRoomController,
+    HealthController,
+  ],
+  providers: [
+    AuthGuard,
+    redisProvider,
+    RedisService,
+    LockService,
+    BrokerService,
+    UpdatesGateway,
+    ExpiryService,
+    WaitingRoomService,
+    MetricsService,
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_INTERCEPTOR, useClass: MetricsInterceptor },
+  ],
+})
+export class AppModule {}

@@ -1,1 +1,12 @@
-{"mutate":["backend/src/**/*.ts","!backend/src/main.ts","!backend/src/**/*.spec.ts"],"testRunner":"jest","coverageAnalysis":"perTest","reporters":["html","clear-text","progress"]}
+{
+  "$schema": "./backend/node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "mutate": [
+    "src/lock.service.ts",
+    "src/payment-policy.ts"
+  ],
+  "testRunner": "jest",
+  "jest": { "configFile": "jest.config.js" },
+  "coverageAnalysis": "perTest",
+  "reporters": ["html", "clear-text", "progress"],
+  "thresholds": { "high": 80, "low": 60, "break": 50 }
+}

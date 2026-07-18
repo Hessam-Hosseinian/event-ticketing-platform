@@ -1,0 +1,28 @@
+@startuml
+!include theme.iuml
+title DDD Context Map and Integration Contracts
+left to right direction
+[Identity] as I
+[Catalog] as C
+[Waiting Room] as W
+[Reservation] as R
+[Billing] as B
+[Ticketing] as T
+[Notification] as N
+[Analytics] as A
+I --> C : Customer/Supplier\nUserId + roles
+C --> R : Published Language\nEventSnapshot, VenueLayout, Price
+W --> R : Conformist\nAdmissionToken contract
+R --> B : Customer/Supplier\nReservationReadyForPayment
+B --> T : Partnership\nPaymentSucceeded
+R ..> N : Domain event\nreservation.*
+B ..> N : Domain event\npayment.*
+T ..> N : Domain event\nticket.*
+R ..> A : Domain event
+B ..> A : Domain event
+note bottom of R
+  Availability belongs to Reservation, not Catalog.
+  Catalog may display an eventually consistent projection;
+  Reservation remains authoritative for allocation.
+end note
+@enduml

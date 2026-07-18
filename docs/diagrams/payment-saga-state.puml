@@ -1,0 +1,22 @@
+@startuml
+!include theme.iuml
+title Payment Saga — Orchestration and Compensation States
+[*] --> PAYMENT_PENDING : reservation pending\nidempotency key accepted
+PAYMENT_PENDING --> RECONCILING : gateway timeout / unknown
+PAYMENT_PENDING --> PAYMENT_SUCCEEDED : gateway confirms capture
+PAYMENT_PENDING --> PAYMENT_FAILED : definitive decline
+RECONCILING --> PAYMENT_SUCCEEDED : status query = captured
+RECONCILING --> PAYMENT_FAILED : status query = declined
+RECONCILING --> PAYMENT_TIMEOUT : reservation TTL / retry budget exhausted
+PAYMENT_SUCCEEDED : confirm reservation\nbook seats\nissue tickets\npublish events
+PAYMENT_FAILED : cancel reservation\nrelease locks\npublish failure
+PAYMENT_TIMEOUT : expire reservation\nrelease locks\nflag late-callback reconciliation
+PAYMENT_SUCCEEDED --> [*]
+PAYMENT_FAILED --> [*]
+PAYMENT_TIMEOUT --> [*]
+note right of RECONCILING
+  Never compensate an uncertain payment immediately.
+  Query by provider idempotency/reference first to avoid
+  charging a customer after their seats were released.
+end note
+@enduml

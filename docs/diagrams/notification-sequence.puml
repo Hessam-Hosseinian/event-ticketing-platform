@@ -1,14 +1,38 @@
 @startuml
-participant "Domain service" as D
-queue RabbitMQ
-participant "Notification worker" as N
-database PostgreSQL
-participant "Email/SMS adapter" as E
-D -> RabbitMQ: integration event
-RabbitMQ -> N: durable delivery
-N -> PostgreSQL: persist notification
-N -> E: simulated send
-E --> N: result
-N -> PostgreSQL: mark sent
-N -> RabbitMQ: ack
+!include theme.iuml
+title Asynchronous Notification — At-Least-Once Delivery and Dead Lettering
+autonumber
+participant "Domain Service" as Domain
+database "Transactional DB" as DB
+participant "Outbox Relay" as Relay
+queue "ticketing.events" as Exchange
+queue "ticketing.notifications" as Queue
+participant "Notification Worker" as Worker
+participant "Email / SMS Adapter" as Provider
+queue "Dead-Letter Exchange" as DLX
+Domain -> DB: BEGIN; update aggregate; insert outbox event; COMMIT
+Relay -> DB: claim unpublished outbox row (SKIP LOCKED)
+Relay -> Exchange: publish(eventId, type, payload)
+Exchange -> Queue: route payment.# / ticket.#
+Queue -> Worker: persistent delivery
+Worker -> DB: check inbox(eventId)
+alt already processed
+  Worker -> Queue: ACK duplicate
+else new event
+  Worker -> DB: insert notification + inbox marker
+  Worker -> Provider: send(template, destination)
+  alt provider accepted
+    Provider --> Worker: providerReference
+    Worker -> DB: mark SENT + sentAt
+    Worker -> Queue: ACK
+  else transient error and retry budget remains
+    Provider --> Worker: 429 / 5xx / timeout
+    Worker -> Queue: NACK + delayed retry (exponential backoff)
+  else permanent error or retries exhausted
+    Provider --> Worker: invalid destination / repeated failure
+    Worker -> DB: mark FAILED + reason
+    Worker -> DLX: dead-letter with correlationId
+    Worker -> Queue: ACK original
+  end
+end
 @enduml

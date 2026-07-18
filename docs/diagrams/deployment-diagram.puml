@@ -1,21 +1,64 @@
 @startuml
-node "Load Balancer / Ingress" as LB
-node "Kubernetes cluster" {
- node "Frontend pods (2+)" as F
- node "Backend pods (3..20 HPA)" as B
- node "Worker pods" as W
+!include theme.iuml
+title Production Deployment — Kubernetes, Stateful Dependencies and Telemetry
+left to right direction
+cloud "Internet" as Internet
+node "DNS + CDN / WAF" as Edge
+node "Cloud Load Balancer" as LB
+node "Kubernetes Cluster (multi-AZ)" as Cluster {
+  node "ingress-nginx" as Ingress
+  frame "ticketing namespace" {
+    node "Frontend Deployment\n2+ stateless pods" as Frontend
+    node "API Deployment\n3..20 pods (HPA)" as API
+    node "Notification Worker\n2..10 pods (KEDA/HPA)" as Worker
+    node "Outbox Relay\nleader-elected" as Relay
+    node "Canary API\n5% traffic" as Canary
+    artifact "ConfigMap" as Config
+    artifact "Secret / External Secrets" as Secret
+  }
+  frame "observability namespace" {
+    node "Prometheus" as Prometheus
+    node "Grafana" as Grafana
+    node "Alertmanager" as Alertmanager
+    node "Loki / log collector" as Loki
+  }
 }
-database "PostgreSQL" as P
-database "Redis" as R
-queue "RabbitMQ" as Q
-node Prometheus
-node Grafana
-LB --> F
-LB --> B
-B --> P
-B --> R
-B --> Q
-Q --> W
-Prometheus --> B
+database "Managed PostgreSQL\nprimary + standby + PITR" as PostgreSQL
+collections "Redis HA\nprimary + replicas" as Redis
+queue "RabbitMQ quorum cluster\n3 nodes + DLX" as RabbitMQ
+cloud "Payment Provider" as Payment
+cloud "Email / SMS Providers" as Notify
+cloud "Object Storage\nbackups / artifacts" as Storage
+Internet --> Edge : HTTPS
+Edge --> LB
+LB --> Ingress
+Ingress --> Frontend : /
+Ingress --> API : /api, /socket.io (95%)
+Ingress --> Canary : /api (5%)
+API --> PostgreSQL : TLS / connection pool
+API --> Redis : TLS
+API --> RabbitMQ : AMQPS
+API --> Payment : HTTPS + idempotency key
+Relay --> PostgreSQL
+Relay --> RabbitMQ
+RabbitMQ --> Worker
+Worker --> PostgreSQL
+Worker --> Notify : HTTPS
+PostgreSQL --> Storage : encrypted backups
+Config ..> API
+Secret ..> API
+Prometheus --> API : /api/metrics
+Prometheus --> Worker : /metrics
+Prometheus --> PostgreSQL : exporter
+Prometheus --> Redis : exporter
+Prometheus --> RabbitMQ : exporter
 Grafana --> Prometheus
+Prometheus --> Alertmanager
+API --> Loki : structured logs
+Worker --> Loki : structured logs
+note bottom of Cluster
+  PodDisruptionBudgets, topology spread constraints,
+  rolling updates, readiness gates and NetworkPolicies
+  preserve availability during deploys and node loss.
+end note
 @enduml

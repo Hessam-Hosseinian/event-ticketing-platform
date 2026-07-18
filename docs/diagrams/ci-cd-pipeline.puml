@@ -1,0 +1,41 @@
+@startuml
+!include theme.iuml
+title GitLab CI/CD Quality Gates and Delivery Flow
+start
+:Developer pushes feature commit;
+fork
+  :Backend lint + typecheck;
+fork again
+  :Frontend typecheck + build;
+fork again
+  :Unit and contention tests;
+fork again
+  :Dependency and secret scan;
+end fork
+if (Any mandatory gate fails?) then (yes)
+  :Block Merge Request;
+  :Fix on feature branch;
+  stop
+endif
+:Coverage report and mutation score;
+:Peer review + CODEOWNERS approval;
+if (Approved?) then (no)
+  :Request changes;
+  stop
+endif
+:Merge to develop;
+:Build immutable OCI images;
+:Generate SBOM and scan image;
+:Deploy ephemeral preview;
+:Run smoke / contract tests;
+if (Release tag?) then (yes)
+  :Promote same digest to production canary;
+  :Observe SLOs for 15 minutes;
+  if (Error budget burn?) then (yes)
+    :Automatic rollback;
+  else (no)
+    :Progress 5% -> 25% -> 100%;
+  endif
+endif
+stop
+@enduml

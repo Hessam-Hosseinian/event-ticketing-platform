@@ -1,28 +1,68 @@
 @startuml
+!include theme.iuml
+title End-to-End Booking — Admission, Atomic Lock, Saga and Compensation
+autonumber
 actor Customer
-participant "Waiting Room" as W
-participant API
-database PostgreSQL as DB
-collections Redis
-participant "Payment Gateway" as PG
-queue RabbitMQ
-Customer -> W: join(event)
-W --> Customer: admission token / position
-Customer -> API: search, select seat
-API -> Redis: SET lock key NX EX 600
-Redis --> API: acquired
-API -> DB: create PENDING reservation
-Customer -> API: checkout
-API -> PG: authorize
-alt success
- PG --> API: success
- API -> DB: CONFIRMED + BOOKED + tickets
- API -> Redis: release locks
- API -> RabbitMQ: PaymentSucceeded, TicketIssued
-else failure or timeout
- PG --> API: failed/timeout
- API -> DB: CANCELLED/EXPIRED
- API -> Redis: release all locks
- API -> RabbitMQ: PaymentFailed
+participant "Web Client" as Web
+participant "API Gateway" as API
+participant "Waiting Room" as Waiting
+participant "Reservation Engine" as Reservation
+collections "Redis" as Redis
+database "PostgreSQL" as DB
+participant "Billing Orchestrator" as Billing
+participant "External Gateway" as Gateway
+queue "RabbitMQ" as MQ
+participant "Notification Worker" as Worker
+Customer -> Web: Open high-demand event
+Web -> API: POST /waiting-room/{event}/join (JWT)
+API -> Waiting: enqueue(event, user)
+Waiting -> Redis: INCR event sequence
+Waiting -> DB: persist QUEUED / ADMITTED entry
+Waiting --> Web: position or admissionToken + expiry
+loop Until admitted (bounded polling / WebSocket)
+  Web -> API: GET /waiting-room/{entry}
+  API --> Web: state + position
 end
+Web -> API: POST /reservations\n(event, seats, admissionToken)
+API -> Waiting: validate token, user, event, TTL
+API -> Reservation: reserve seats
+Reservation -> DB: validate published event, venue and pricing
+Reservation -> Redis: EVAL atomic multi-key acquire\n(all absent => PSETEX all, 10 min)
+alt any key already exists
+  Redis --> Reservation: conflict (no partial locks)
+  Reservation --> Web: 409 seat unavailable
+else all keys acquired
+  Redis --> Reservation: acquired
+  Reservation -> DB: BEGIN; recheck UNIQUE(eventId, seatId)\ninsert PENDING reservation + price snapshots; COMMIT
+  Reservation --> Web: reservation + expiresAt + total
+end
+Web -> API: POST /payments\n(reservationId, idempotencyKey)
+API -> Billing: create or return existing payment
+Billing -> Gateway: authorize/capture(reference, amount)
+alt definitive success before reservation expiry
+  Gateway --> Billing: success + providerReference
+  Billing -> DB: BEGIN (pessimistic payment lock)\nCONFIRMED + BOOKED + immutable tickets; COMMIT
+  Billing -> Redis: owner-checked release
+  Billing -> MQ: payment.succeeded + ticket.issued
+  Billing --> Web: ticket metadata
+else decline
+  Gateway --> Billing: declined
+  Billing -> DB: BEGIN; FAILED + CANCELLED\ndelete transient inventory; COMMIT
+  Billing -> Redis: owner-checked release
+  Billing -> MQ: payment.failed
+  Billing --> Web: compensated failure
+else timeout / uncertain response
+  Gateway x-- Billing: timeout
+  Billing -> Gateway: bounded status reconciliation
+  alt payment is unknown or failed at TTL
+    Billing -> DB: TIMEOUT + EXPIRED + compensation
+    Billing -> Redis: owner-checked release
+    Billing -> MQ: payment.failed
+  else gateway confirms success
+    Billing -> DB: idempotent success transition
+  end
+end
+MQ -> Worker: durable delivery
+Worker -> DB: persist notification outcome
+Worker --> Customer: Email / SMS
 @enduml

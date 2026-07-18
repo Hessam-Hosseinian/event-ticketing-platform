@@ -1,12 +1,35 @@
 @startuml
+!include theme.iuml
+title Organizer Event Creation — Activity Diagram
 start
-:Authenticate organizer/admin;
-:Create venue; :Define sectors, rows and seats;
-:Create pricing categories; :Create event;
-if (validation passes?) then (yes)
- :Publish event;
-else (no)
- :Correct schedule/layout;
+:Authenticate as ORGANIZER or ADMIN;
+if (Venue exists?) then (no)
+  :Create venue metadata;
+  repeat
+    :Add sector;
+    :Define rows, seats per row and accessibility;
+  repeat while (More sectors?) is (yes)
 endif
+:Create draft event;
+:Set title, classification, tags, city and schedule;
+repeat
+  :Map default or sector pricing category;
+repeat while (More pricing categories?) is (yes)
+:Run publication validation;
+if (Future schedule?) then (no)
+  :Correct start/end times;
+  :Return to validation after correction;
+endif
+if (Venue has seats?) then (no)
+  :Complete layout;
+  :Return to validation after correction;
+endif
+if (Every seat has a price?) then (no)
+  :Add default or missing sector price;
+  :Return to validation after correction;
+endif
+:Publish event and invalidate catalog cache;
+:Announce event-created integration event;
+:Monitor sales, revenue and remaining capacity dashboard;
 stop
 @enduml

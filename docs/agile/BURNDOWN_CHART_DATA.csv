@@ -1,10 +1,19 @@
-Sprint,Day,IdealRemaining,ActualRemaining
-1,0,26,26
-1,5,13,16
-1,10,0,0
-2,0,34,34
-2,5,17,21
-2,10,0,0
-3,0,32,32
-3,5,16,19
-3,10,0,0
+Sprint,Day,IdealRemaining,ActualRemaining,Note
+1,0,26,26,Sprint start
+1,2,21,24,Schema clarification
+1,4,16,18,Auth accepted
+1,6,10,13,Venue flow in review
+1,8,5,8,Frontend contract rework
+1,10,0,3,Ownership tests carried over
+2,0,42,42,Sprint start including carry-over
+2,2,34,39,Contention harness setup
+2,4,25,31,Atomic locking accepted
+2,6,17,22,Uncertain payment discovered
+2,8,8,12,Saga and QR in review
+2,10,0,5,Expiry race verification carried over
+3,0,45,45,Sprint start
+3,2,36,41,Queue and messaging integration
+3,4,27,32,Realtime and QA evidence
+3,6,18,23,UML and operations review
+3,8,9,13,Submission clean-checkout audit
+3,10,0,5,Production hardening remains explicitly open

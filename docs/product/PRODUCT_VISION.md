@@ -1,10 +1,10 @@
-# Product vision — SeatFair
+# Product vision — Narm
 
 ## Vision statement
 
-For buyers and event organizers who experience unreliable, opaque flash sales, **SeatFair** is an
+For buyers and event organizers who experience unreliable, opaque flash sales, **Narm** is an
 event-discovery and ticketing platform that combines fair admission, live venue inventory, safe checkout
-and instantly verifiable tickets. Unlike a basic marketplace, SeatFair treats concurrency correctness,
+and instantly verifiable tickets. Unlike a basic marketplace, Narm treats concurrency correctness,
 failure recovery and transparency as visible product capabilities—not hidden implementation details.
 
 ## Problem and opportunity

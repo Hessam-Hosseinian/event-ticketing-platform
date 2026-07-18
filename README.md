@@ -50,7 +50,12 @@ Redis acquires every seat lock atomically with a 10-minute TTL; partial acquisit
 back. Successful payment books seats and creates cryptographically random ticket tokens.
 Failure or timeout compensates by cancelling the reservation and releasing all locks.
 
-See [API demo](docs/submission/API_DEMO_GUIDE.md), [architecture decisions](docs/architecture/ARCHITECTURE_DECISIONS.md),
+See the [software-engineering evidence index](docs/README.md),
+[requirements traceability](docs/REQUIREMENTS_TRACEABILITY.md),
+[API demo](docs/submission/API_DEMO_GUIDE.md),
+[architecture decisions](docs/architecture/ARCHITECTURE_DECISIONS.md),
 [diagrams](docs/diagrams/EXPORT_DIAGRAMS.md), and [defense guide](FINAL_DEFENSE_GUIDE.md).
 
-The ready-to-submit diagrams are in `docs/diagrams/export` as vector SVG and PDF files.
+The ready-to-submit diagrams are in `docs/diagrams/export` as 12 vector SVG/PDF pairs. The traceability
+matrix deliberately separates complete engineering artifacts from prototype implementation that still
+requires production hardening.

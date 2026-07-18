@@ -1,17 +1,52 @@
 @startuml
-[Web/Mobile] --> [API Gateway]
-[API Gateway] --> [Identity Service]
-[API Gateway] --> [Catalog Service]
-[API Gateway] --> [Reservation Service]
-[API Gateway] --> [Billing Service]
-[API Gateway] --> [Waiting Room]
-database PostgreSQL as PG
-database Redis as RD
-queue RabbitMQ as MQ
-[Reservation Service] --> PG
-[Reservation Service] --> RD
-[Billing Service] --> [External Payment Gateway]
-[Billing Service] --> MQ
-MQ --> [Notification Service]
-[Catalog Service] --> PG
+!include theme.iuml
+title Logical Component Diagram — Decoupled Bounded Contexts
+left to right direction
+package "Clients" {
+  [React Web] as Web
+  [Future Mobile Client] as Mobile
+  [Organizer Console] as Console
+}
+[API Gateway] as Gateway
+[Identity & Access] as Identity
+[Catalog & Discovery] as Catalog
+[Reservation & Inventory] as Reservation
+[Virtual Waiting Room] as Waiting
+[Billing & Checkout] as Billing
+[Ticket Verification] as Tickets
+[Notification Worker] as Notification
+[Analytics Projection] as Analytics
+database "PostgreSQL\n(system of record)" as PostgreSQL
+collections "Redis\nlocks, queue counters, cache" as Redis
+queue "RabbitMQ\nintegration events" as RabbitMQ
+cloud "External Payment Gateway" as PaymentGateway
+cloud "Email / SMS Providers" as Providers
+Web --> Gateway : HTTPS / WebSocket
+Mobile ..> Gateway : future HTTPS
+Console --> Gateway : HTTPS
+Gateway --> Identity : authenticate / authorize
+Gateway --> Catalog : queries and administration
+Gateway --> Waiting : admission
+Gateway --> Reservation : commands / inventory
+Gateway --> Billing : checkout
+Gateway --> Tickets : QR verification
+Identity --> PostgreSQL
+Catalog --> PostgreSQL
+Reservation --> PostgreSQL : durable reservation
+Reservation --> Redis : atomic TTL locks
+Waiting --> Redis : ordered admission
+Waiting --> PostgreSQL : auditable entries
+Billing --> PostgreSQL : payment saga + tickets
+Billing --> PaymentGateway
+Billing --> RabbitMQ : payment.* / ticket.*
+Reservation --> RabbitMQ : reservation.*
+RabbitMQ --> Notification
+RabbitMQ --> Analytics
+Notification --> PostgreSQL : delivery log / inbox
+Notification --> Providers
+Analytics --> PostgreSQL : read model
+note bottom of Gateway
+  Unified edge: TLS termination, JWT validation,
+  correlation IDs, throttling and route policy.
+end note
 @enduml

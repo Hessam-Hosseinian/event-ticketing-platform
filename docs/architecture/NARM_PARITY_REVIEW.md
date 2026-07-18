@@ -1,24 +1,21 @@
-# Narm parity review
+# Narm prototype parity review
 
-The `/home/hessam/Narm` reference was audited against this NestJS implementation.
+This is a historical prototype comparison, not proof of production readiness. It records the intended
+course-demo surface and links remaining hardening to the traceability matrix.
 
-| Capability in Narm | Earlier state here | Current state |
+| Capability | Prototype evidence | Production/design gap tracked |
 |---|---|---|
-| Persian RTL product UI | Generic English single component | Rebuilt as routed Narm UI |
-| Event detail and live seat inventory | Missing detail endpoint | Venue, rows, prices and live state returned |
-| Waiting-room step before reservation | Disconnected demo | Integrated into the UI booking journey |
-| Simulated success/failure/timeout checkout | Static buttons | Connected payment orchestration |
-| Ticket wallet and QR visualization | Placeholder | Issued tickets loaded and rendered |
-| Organizer experience | Placeholder cards | Protected venue creation panel |
-| Seeded demo | Stub seed | 4 users, 2 venues, 192 seats, 5 events |
-| Reservation expiry worker | Missing | 30-second reconciliation loop |
-| Lock ownership safety | Unconditional delete | Atomic owner-checked Lua release |
-| Payment idempotency | Duplicate attempts possible | One payment per reservation |
-| Reservation ownership checks | Partial | Cancel and payment verify the customer |
-| Vector diagram exports | Sources only | 8 SVG and 8 PDF outputs |
-| Notification worker | Console fallback | Durable RabbitMQ queue and acknowledgements |
+| Persian RTL routed product UI | `frontend/src`, demo accounts | accessibility checklist and failure/offline verification |
+| Event detail/live inventory | event API and seat-map components | authoritative version/reconnect and filter contract |
+| Waiting-room step | endpoint/UI prototype | signed bound token, fairness/rejoin and overload test |
+| Success/failure/timeout checkout | payment/reservation prototype | explicit uncertain reconciliation and callback authenticity |
+| Ticket wallet/QR visualization | ticket API/UI | authenticated QR fetch, hash lookup and one-time check-in |
+| Organizer authoring/metrics | management UI/API prototype | ownership, pricing/publication guards and projection freshness |
+| Reservation expiry/locking | TTL/sweeper prototype | atomic multi-seat operation, owner release and expiry race proof |
+| Payment idempotency | one payment per reservation prototype | request idempotency key and stable duplicate callback result |
+| Messaging/realtime | RabbitMQ/Socket.IO prototype | outbox/inbox/DLX and scoped rooms/version gaps |
+| Architecture/UML | 12 PlantUML sources and 12 SVG/PDF pairs | joint visual/traceability review before tag |
 
-The implementation deliberately remains TypeScript/NestJS rather than copying the reference
-Python stack. PostgreSQL entities currently combine live inventory and reservation-seat state;
-splitting an explicit `SeatInventory` aggregate is a reasonable future microservice extraction,
-not required for the demonstrated invariant.
+The system intentionally remains TypeScript/NestJS rather than copying another stack. The target is a modular
+monolith aligned to bounded contexts. `docs/REQUIREMENTS_TRACEABILITY.md` is authoritative for Complete vs
+Prototype status; this review must not be used as a blanket “done” claim.

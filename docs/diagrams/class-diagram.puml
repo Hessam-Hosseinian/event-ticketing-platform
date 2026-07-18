@@ -1,52 +1,154 @@
 @startuml
-class User {
-  id: UUID
-  email: string
-  role: Role
+!include theme.iuml
+title Event Ticketing Platform — Domain Class Diagram
+skinparam classAttributeIconSize 0
+package "Identity Context" {
+  class User <<aggregate_root>> {
+    +id: UUID
+    +email: Email
+    +name: string
+    -passwordHash: string
+    +role: Role
+    +createdAt: Instant
+  }
+  enum Role {
+    CUSTOMER
+    ORGANIZER
+    ADMIN
+  }
+  User --> Role
 }
-class Venue {
-  id: UUID
-  name: string
-  city: string
+package "Catalog Context" {
+  class Venue <<aggregate_root>> {
+    +id: UUID
+    +name: string
+    +city: string
+    +address: string
+  }
+  class Sector <<entity>> {
+    +id: UUID
+    +name: string
+  }
+  class Seat <<entity>> {
+    +id: UUID
+    +row: string
+    +number: int
+    +accessible: boolean
+  }
+  class Event <<aggregate_root>> {
+    +id: UUID
+    +title: string
+    +genre: string
+    +tags: string[*]
+    +startsAt: Instant
+    +endsAt: Instant?
+    +published: boolean
+  }
+  class PricingCategory <<entity>> {
+    +id: UUID
+    +name: string
+    +price: Money
+    +sectorId: UUID?
+  }
+  class Money <<value_object>> {
+    +amount: decimal
+    +currency: ISO-4217
+  }
+  Venue "1" *-- "1..*" Sector
+  Sector "1" *-- "1..*" Seat
+  Venue "1" <-- "0..*" Event
+  Event "1" *-- "1..*" PricingCategory
+  PricingCategory *-- Money
 }
-class Sector
-class Seat {
-  row: string
-  number: int
+package "Reservation Context" {
+  class Reservation <<aggregate_root>> {
+    +id: UUID
+    +state: ReservationState
+    +expiresAt: Instant
+    +total: Money
+    +confirm()
+    +cancel()
+    +expire()
+  }
+  class ReservationSeat <<entity>> {
+    +id: UUID
+    +state: SeatState
+    +priceSnapshot: Money
+  }
+  class WaitingRoomEntry <<aggregate_root>> {
+    +id: UUID
+    +position: long
+    +state: QueueState
+    +admissionToken: string?
+    +tokenExpiresAt: Instant?
+  }
+  enum ReservationState {
+    PENDING
+    CONFIRMED
+    CANCELLED
+    EXPIRED
+  }
+  enum SeatState {
+    LOCKED
+    BOOKED
+  }
+  enum QueueState {
+    QUEUED
+    ADMITTED
+    EXPIRED
+  }
+  Reservation "1" *-- "1..10" ReservationSeat
+  Reservation --> ReservationState
+  ReservationSeat --> SeatState
+  WaitingRoomEntry --> QueueState
 }
-class Event {
-  startsAt: Date
-  published: bool
+package "Billing Context" {
+  class Payment <<aggregate_root>> {
+    +id: UUID
+    +idempotencyKey: string
+    +state: PaymentState
+    +amount: Money
+    +reference: string?
+    +failureReason: string?
+  }
+  class Ticket <<aggregate_root>> {
+    +id: UUID
+    +token: string
+    +qrHash: SHA-256
+    +issuedAt: Instant
+    +checkedInAt: Instant?
+  }
+  enum PaymentState {
+    PENDING
+    SUCCESS
+    FAILED
+    TIMEOUT
+    CANCELLED
+  }
+  Payment --> PaymentState
 }
-class PricingCategory {
-  price: decimal
+package "Notification Context" {
+  class Notification <<aggregate_root>> {
+    +id: UUID
+    +channel: Channel
+    +message: string
+    +sent: boolean
+    +providerReference: string?
+    +sentAt: Instant?
+  }
 }
-class Reservation {
-  state
-  expiresAt
-}
-class ReservationSeat {
-  state
-}
-class Payment {
-  state
-  reference
-}
-class Ticket {
-  token
-  qrHash
-}
-class Notification
-Venue "1" *-- "*" Sector
-Sector "1" *-- "*" Seat
-Venue "1" -- "*" Event
-User "1" -- "*" Event : organizes
-Event "1" *-- "*" PricingCategory
-User "1" -- "*" Reservation
-Event "1" -- "*" Reservation
-Reservation "1" *-- "*" ReservationSeat
-Seat "1" -- "*" ReservationSeat
-Reservation "1" -- "0..1" Payment
-Reservation "1" -- "*" Ticket
-User "1" -- "*" Notification
+User "1" --> "0..*" Event : organizes >
+User "1" --> "0..*" Reservation : owns >
+User "1" --> "0..*" WaitingRoomEntry
+Event "1" --> "0..*" Reservation
+Event "1" --> "0..*" WaitingRoomEntry
+Seat "1" <-- "0..*" ReservationSeat
+Reservation "1" --> "0..1" Payment
+Reservation "1" --> "0..*" Ticket
+Seat "1" <-- "0..*" Ticket
+User "1" --> "0..*" Notification
+note bottom of ReservationSeat
+  UNIQUE(eventId, seatId) is the durable
+  final guard against double booking.
+end note
 @enduml

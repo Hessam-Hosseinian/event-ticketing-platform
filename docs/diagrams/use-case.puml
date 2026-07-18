@@ -1,21 +1,55 @@
 @startuml
+!include theme.iuml
+title Event Ticketing Platform — Use Case Diagram
 left to right direction
 actor Customer
 actor Organizer
-actor Admin
-rectangle Platform {
- usecase "Discover/filter events" as UC1
- usecase "Join waiting room" as UC2
- usecase "Select and lock seats" as UC3
- usecase "Checkout and receive ticket" as UC4
- usecase "Manage venue layout" as UC5
- usecase "Manage events and pricing" as UC6
+actor "System Administrator" as Admin
+actor "Payment Gateway" as Gateway
+actor "Email / SMS Provider" as Provider
+actor "Entrance Operator" as Operator
+rectangle "Event Ticketing Platform" {
+  usecase "Register / sign in" as Auth
+  usecase "Discover and filter events" as Discover
+  usecase "View live seat map" as SeatMap
+  usecase "Join virtual waiting room" as Queue
+  usecase "Receive admission token" as Admission
+  usecase "Temporarily lock seats" as Lock
+  usecase "Cancel / let reservation expire" as Cancel
+  usecase "Pay idempotently" as Pay
+  usecase "Compensate failed checkout" as Compensate
+  usecase "Receive QR ticket" as Ticket
+  usecase "Verify / check in ticket" as Verify
+  usecase "Configure venue layout" as Venue
+  usecase "Schedule event and pricing" as Event
+  usecase "Publish or update event" as Publish
+  usecase "View sales analytics" as Analytics
+  usecase "Manage users and roles" as Users
+  usecase "Send transactional notification" as Notify
 }
-Customer --> UC1
-Customer --> UC2
-Customer --> UC3
-Customer --> UC4
-Organizer --> UC6
-Admin --> UC5
-Admin --> UC6
+Customer --> Auth
+Customer --> Discover
+Customer --> SeatMap
+Customer --> Queue
+Customer --> Lock
+Customer --> Cancel
+Customer --> Pay
+Customer --> Ticket
+Organizer --> Venue
+Organizer --> Event
+Organizer --> Publish
+Organizer --> Analytics
+Admin --> Users
+Admin --> Venue
+Admin --> Event
+Operator --> Verify
+Gateway --> Pay
+Provider --> Notify
+Queue ..> Admission : <<include>>
+Lock ..> Admission : <<include>>
+Pay ..> Lock : <<include>>
+Compensate ..> Pay : <<extend>>\n[gateway failure / timeout]
+Ticket ..> Pay : <<extend>>\n[payment succeeded]
+Notify ..> Pay : <<extend>>\n[status changed]
+Publish ..> Event : <<include>>
 @enduml

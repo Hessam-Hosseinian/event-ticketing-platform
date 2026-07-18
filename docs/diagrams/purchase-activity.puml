@@ -1,16 +1,49 @@
 @startuml
+!include theme.iuml
+title Customer Purchase Journey — Activity Diagram
 start
-:Login; :Search event; :Join queue;
-:Choose seats; :Acquire Redis locks;
-if (all acquired?) then (yes)
- :Checkout;
- if (outcome?) then (success)
-  :Book seats; :Issue ticket;
- else (failure/timeout/cancel)
-  :Compensate; :Release locks;
- endif
-else (no)
- :Show unavailable;
+:Register or sign in;
+:Search/filter by genre, date, city and availability;
+:Open event and live venue map;
+:Join virtual waiting room;
+while (Admitted?) is (no)
+  :Show queue position and estimated wait;
+  if (User leaves?) then (yes)
+    stop
+  endif
+endwhile (yes)
+:Select 1..10 available seats;
+:Submit admission token and seat set;
+if (Atomic lock acquired?) then (no)
+  :Refresh live inventory;
+  :Explain conflicting seats;
+  stop
+else (yes)
+  :Show 10-minute countdown and price snapshot;
+endif
+if (Cancel or timer expires before payment?) then (yes)
+  :Compensate reservation;
+  :Release only owner-held locks;
+  stop
+endif
+:Start idempotent payment;
+if (Gateway outcome?) then (success)
+  :Confirm reservation and book seats atomically;
+  :Issue one signed-token QR per seat;
+  :Publish payment/ticket events;
+  :Display and email tickets;
+elseif (declined)
+  :Mark payment failed and reservation cancelled;
+  :Delete transient inventory and release locks;
+  :Notify customer;
+else (timeout / uncertain)
+  :Reconcile gateway status with bounded retries;
+  if (Confirmed paid?) then (yes)
+    :Run idempotent success transition;
+    :Issue tickets;
+  else (no)
+    :Expire and compensate reservation;
+  endif
 endif
 stop
 @enduml

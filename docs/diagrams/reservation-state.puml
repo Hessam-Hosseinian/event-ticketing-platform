@@ -1,0 +1,25 @@
+@startuml
+!include theme.iuml
+title Reservation Aggregate — State Machine
+[*] --> PENDING : atomic locks acquired\nreservation persisted
+PENDING : entry / expiresAt = now + 10 min
+PENDING --> CONFIRMED : payment.succeeded\n[before expiry]
+PENDING --> CANCELLED : user.cancel / gateway.declined
+PENDING --> EXPIRED : TTL elapsed / payment.timeout
+CONFIRMED : entry / seats BOOKED; tickets issued
+CANCELLED : entry / transient rows removed; locks released
+EXPIRED : entry / transient rows removed; locks released
+CONFIRMED --> [*]
+CANCELLED --> [*]
+EXPIRED --> [*]
+note right of PENDING
+  Guards:
+  - admission token matches user/event
+  - Redis multi-key lock succeeds
+  - DB UNIQUE(eventId, seatId)
+end note
+note bottom of CONFIRMED
+  Terminal transitions are idempotent.
+  A late duplicate callback returns the same tickets.
+end note
+@enduml

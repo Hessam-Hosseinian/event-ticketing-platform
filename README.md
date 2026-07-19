@@ -41,7 +41,17 @@ cd backend && npm install && npm run seed && npm run start:dev
 cd frontend && npm install && npm run dev
 ```
 
-Tests: `cd backend && npm test`; load: `k6 run tests/load/k6-booking-test.js`.
+Resource-safe local verification:
+
+```bash
+export NODE_OPTIONS=--max-old-space-size=1024
+cd backend && npm run lint && npm run build && npm test -- --runInBand
+cd ../frontend && npm run lint && npm run build
+```
+
+Mutation and k6 load tests intentionally run only in manual/scheduled CI jobs so a development
+laptop is not saturated. Docker Compose serves the production frontend through Nginx while proxying
+REST and Socket.IO to the backend.
 
 ## Booking flow
 

@@ -31,7 +31,8 @@ a {
 }
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 select {
@@ -226,7 +227,7 @@ footer strong {
 }
 .search-box {
   margin-top: 38px;
-  width: min(850px, 100%);
+  width: min(1120px, 100%);
   min-height: 64px;
   border: 1px solid #30384d;
   background: #111725;
@@ -249,6 +250,25 @@ footer strong {
   color: white;
   outline: 0;
   padding: 15px;
+}
+.search-box .date-filter {
+  flex: 0 1 170px;
+  color-scheme: dark;
+}
+.availability-filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  color: #c4c8d3;
+  font-size: 11px;
+}
+.availability-filter input {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--lime);
+  padding: 0;
 }
 .search-box .city-filter {
   max-width: 130px;
@@ -465,6 +485,18 @@ option {
   text-align: center;
   color: #6f7588;
   margin-top: 15px;
+}
+.text-button {
+  display: block;
+  margin: 14px auto 0;
+  border: 0;
+  background: transparent;
+  color: #a995ff;
+  cursor: pointer;
+}
+.text-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 .notice {
   display: flex;
@@ -722,6 +754,21 @@ option {
 .payment-summary strong {
   color: var(--lime);
 }
+.countdown {
+  margin: 18px 0 0;
+  text-align: center;
+  color: #aeb4c2;
+  font-size: 13px;
+}
+.countdown b {
+  direction: ltr;
+  display: inline-block;
+  color: var(--lime);
+}
+.countdown.urgent,
+.countdown.urgent b {
+  color: #ff879c;
+}
 .fake-card {
   background: linear-gradient(135deg, #5141a3, #28205b);
   padding: 22px;
@@ -785,6 +832,16 @@ option {
   margin: 28px auto 18px;
   background: white;
   padding: 9px;
+}
+.qr-image {
+  display: block;
+  width: 180px;
+  height: 180px;
+  object-fit: contain;
+  margin: 28px auto 18px;
+  padding: 8px;
+  background: #fff;
+  border-radius: 8px;
 }
 .qr i.dark {
   background: #111;
@@ -850,6 +907,108 @@ option {
   color: #858b9b;
   font-size: 12px;
 }
+.manage-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.manage-card.full-card {
+  grid-column: 1 / -1;
+}
+.manage-form {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+}
+.manage-form.wide-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.manage-form label,
+.analytics-picker {
+  display: grid;
+  gap: 7px;
+  color: #aab0bf;
+  font-size: 12px;
+}
+.manage-form input,
+.manage-form select,
+.manage-form textarea,
+.analytics-picker select,
+.user-table select {
+  width: 100%;
+  border: 1px solid #2b3449;
+  background: #0b0f19;
+  color: #fff;
+  padding: 10px;
+  border-radius: 10px;
+}
+.manage-form textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+.manage-form .full-field {
+  grid-column: 1 / -1;
+}
+.manage-form .check-field {
+  display: flex;
+  align-items: center;
+}
+.manage-form .check-field input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--lime);
+}
+.manage-form .button {
+  justify-self: start;
+}
+.analytics-picker {
+  max-width: 430px;
+  margin: 0 0 20px;
+}
+.user-table {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+}
+.user-table > div {
+  display: grid;
+  grid-template-columns: 1fr 180px;
+  align-items: center;
+  gap: 18px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.user-table span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.user-table small {
+  direction: ltr;
+  width: max-content;
+  color: var(--muted);
+}
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 14px;
+  margin-top: 32px;
+  color: #aeb4c2;
+  font-size: 12px;
+}
+.pagination button {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+  border-radius: 9px;
+  padding: 8px 15px;
+  cursor: pointer;
+}
+.pagination button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
 .inline-form {
   display: grid;
   grid-template-columns: 1fr 1fr auto;
@@ -884,9 +1043,11 @@ option {
     padding: 10px;
   }
   .search-box select,
-  .search-box .city-filter {
+  .search-box .city-filter,
+  .search-box .date-filter {
     width: 100%;
     max-width: none;
+    flex-basis: 100%;
   }
   #city-filter {
     border: 0;
@@ -911,7 +1072,16 @@ option {
     width: 28px;
   } */
   .stats,
-  .inline-form {
+  .inline-form,
+  .manage-grid,
+  .manage-form.wide-form {
+    grid-template-columns: 1fr;
+  }
+  .manage-card.full-card,
+  .manage-form .full-field {
+    grid-column: auto;
+  }
+  .user-table > div {
     grid-template-columns: 1fr;
   }
   .booking-head {

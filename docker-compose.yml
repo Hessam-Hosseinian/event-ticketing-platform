@@ -28,7 +28,7 @@ services:
     healthcheck: {test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health/ready"], interval: 10s, timeout: 5s, retries: 20}
   frontend:
     build: ./frontend
-    environment: {VITE_API_URL: http://localhost:3000/api, VITE_WS_URL: http://localhost:3000}
-    ports: ["5173:5173"]
+    ports: ["5173:8080"]
     depends_on: [backend]
+    healthcheck: {test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"], interval: 10s, timeout: 5s, retries: 10}
 volumes: {postgres-data: {}}

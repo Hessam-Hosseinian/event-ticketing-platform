@@ -9,7 +9,7 @@ function Layout({ children }: { children: React.ReactNode }) {
   const [live, setLive] = useState("");
   useEffect(() => {
     if (!session) return;
-    const socket = io(import.meta.env.VITE_WS_URL ?? "http://localhost:3000", {
+    const socket = io(import.meta.env.VITE_WS_URL ?? window.location.origin, {
       auth: { token: session.token },
     });
     let toastTimer: number | undefined;

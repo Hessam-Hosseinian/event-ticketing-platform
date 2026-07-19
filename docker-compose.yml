@@ -25,10 +25,10 @@ services:
       WAITING_ROOM_REQUIRED: "true"
     ports: ["3000:3000"]
     depends_on: {postgres: {condition: service_healthy}, redis: {condition: service_healthy}, rabbitmq: {condition: service_healthy}}
-    healthcheck: {test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health/ready"], interval: 10s, timeout: 5s, retries: 20}
+    healthcheck: {test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health/ready"], interval: 10s, timeout: 5s, retries: 20}
   frontend:
     build: ./frontend
     ports: ["5173:8080"]
     depends_on: [backend]
-    healthcheck: {test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"], interval: 10s, timeout: 5s, retries: 10}
+    healthcheck: {test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"], interval: 10s, timeout: 5s, retries: 10}
 volumes: {postgres-data: {}}

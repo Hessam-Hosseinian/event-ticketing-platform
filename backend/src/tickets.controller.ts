@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { createHash } from 'crypto';
 import * as QRCode from 'qrcode';
 import { Repository } from 'typeorm';
-import { Notification, Reservation, Role, Ticket } from './entities';
+import { Event, Notification, Reservation, Role, Seat, Ticket } from './entities';
 import { AuthenticatedUser, AuthGuard, Roles } from './security';
 
 @Controller('tickets')
@@ -11,7 +11,38 @@ export class TicketsController {
   constructor(
     @InjectRepository(Ticket) private readonly tickets: Repository<Ticket>,
     @InjectRepository(Reservation) private readonly reservations: Repository<Reservation>,
+    @InjectRepository(Event) private readonly events: Repository<Event>,
+    @InjectRepository(Seat) private readonly seats: Repository<Seat>,
   ) {}
+
+  @Get()
+  @UseGuards(AuthGuard)
+  async list(@Req() request: { user: AuthenticatedUser }) {
+    const reservations = await this.reservations.findBy({ userId: request.user.sub });
+    if (!reservations.length) return [];
+    const tickets = await this.tickets.createQueryBuilder('ticket')
+      .where('ticket.reservationId IN (:...reservationIds)', { reservationIds: reservations.map((reservation) => reservation.id) })
+      .orderBy('ticket.issuedAt', 'DESC')
+      .getMany();
+    const eventIds = [...new Set(reservations.map((reservation) => reservation.eventId))];
+    const seatIds = [...new Set(tickets.map((ticket) => ticket.seatId))];
+    const events = eventIds.length ? await this.events.createQueryBuilder('event').whereInIds(eventIds).getMany() : [];
+    const seats = seatIds.length ? await this.seats.createQueryBuilder('seat').whereInIds(seatIds).getMany() : [];
+    const reservationById = new Map(reservations.map((reservation) => [reservation.id, reservation]));
+    const eventById = new Map(events.map((event) => [event.id, event]));
+    const seatById = new Map(seats.map((seat) => [seat.id, seat]));
+    return tickets.map((ticket) => {
+      const reservation = reservationById.get(ticket.reservationId);
+      const event = reservation ? eventById.get(reservation.eventId) : undefined;
+      const seat = seatById.get(ticket.seatId);
+      return {
+        ...ticket,
+        eventTitle: event?.title,
+        eventStartsAt: event?.startsAt,
+        seatLabel: seat ? `${seat.row}-${seat.number}` : undefined,
+      };
+    });
+  }
 
   @Get('reservation/:id')
   @UseGuards(AuthGuard)
@@ -42,9 +73,14 @@ export class TicketsController {
   @Post(':id/check-in')
   @UseGuards(AuthGuard)
   @Roles(Role.ORGANIZER, Role.ADMIN)
-  async checkIn(@Param('id') id: string) {
+  async checkIn(@Req() request: { user: AuthenticatedUser }, @Param('id') id: string) {
     const ticket = await this.tickets.findOneBy({ id });
     if (!ticket) throw new NotFoundException('Ticket not found');
+    const reservation = await this.reservations.findOneByOrFail({ id: ticket.reservationId });
+    const event = await this.events.findOneByOrFail({ id: reservation.eventId });
+    if (request.user.role !== Role.ADMIN && event.organizerId !== request.user.sub) {
+      throw new ForbiddenException('Ticket belongs to another organizer');
+    }
     if (ticket.checkedInAt) throw new ForbiddenException('Ticket was already checked in');
     ticket.checkedInAt = new Date();
     return this.tickets.save(ticket);

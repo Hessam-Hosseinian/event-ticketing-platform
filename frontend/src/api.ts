@@ -100,8 +100,9 @@ export interface Ticket {
 }
 
 export interface StoredTicket extends Ticket {
-  qrDataUrl: string;
+  qrDataUrl?: string;
   eventTitle?: string;
+  eventStartsAt?: string;
   seatLabel?: string;
 }
 

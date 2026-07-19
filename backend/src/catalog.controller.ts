@@ -90,6 +90,16 @@ export class EventsController {
     return { items, page: query.page, limit: query.limit, total, pages: Math.ceil(total / query.limit) };
   }
 
+  @Get('mine')
+  @UseGuards(AuthGuard)
+  @Roles(Role.ORGANIZER, Role.ADMIN)
+  listOwned(@Req() request: { user: AuthenticatedUser }) {
+    return this.events.find({
+      where: request.user.role === Role.ADMIN ? {} : { organizerId: request.user.sub },
+      order: { startsAt: 'ASC' },
+    });
+  }
+
   @Get(':id')
   async detail(@Param('id') id: string) {
     const event = await this.events.findOneBy({ id });

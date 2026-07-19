@@ -1,17 +1,31 @@
-# CI/CD design and current-state explanation
+# CI/CD design and implementation
 
-The desired pipeline is shown in `docs/diagrams/ci-cd-pipeline.puml`: reproducible install; parallel lint/type,
-unit/integration/build and security; coverage/mutation/load evidence; immutable OCI build/SBOM/scan; preview smoke;
-then tagged canary promotion of the same digest with SLO rollback.
+The pipeline follows `docs/diagrams/ci-cd-pipeline.puml`: reproducible install, parallel quality and
+security gates, immutable OCI images, manifest validation and an explicitly approved deployment step.
 
-The checked-in `.gitlab-ci.yml` is a **prototype baseline**. It installs, lints, runs Jest/coverage, builds apps
-and images, audits dependencies and defines manual preview. Production hardening remains implementation work:
-security scans currently tolerate findings, mutation/load/contract/IaC validation are not complete gates, image
-registry/SBOM/signing is absent and preview is a placeholder. The traceability matrix therefore does not mark the
-pipeline production-complete.
+## GitHub CI
 
-Mandatory target gates must fail the pipeline on lint/type/test/build, High/Critical unapproved dependency or image
-finding, secret detection, IaC validation and P0 integration failure. Heavy mutation/load run scheduled or on label
-and retain evidence without blocking a developer laptop. Protected/masked variables hold registry/Kubernetes and
-dependency URLs/secrets; fork/untrusted pipelines cannot access protected environments. Deploy jobs require protected
-tag/environment approval and record digest, migration/flag, canary comparison and rollback.
+`.github/workflows/ci.yml` runs on push, pull request and manual dispatch. It executes backend lint,
+serial Jest tests, production build and dependency audit; frontend type checks, production build and
+dependency audit; and Terraform format, initialization and validation. Any failed mandatory gate fails
+the workflow. Serial backend tests and the 1 GiB Node heap ceiling keep resource use predictable.
+
+## GitHub delivery
+
+After successful CI on `main`, `.github/workflows/cd.yml` validates every Kubernetes manifest and builds
+both production Dockerfiles on GitHub-hosted runners. It publishes `sha-<12 characters>` and `latest`
+tags to GitHub Container Registry with BuildKit cache, provenance and SBOM. The SHA tag is the deployment
+identity; `latest` is only a convenience pointer.
+
+Kubernetes deployment is intentionally manual. Configure a GitHub `production` environment, add a
+base64-encoded kubeconfig as its `KUBE_CONFIG_DATA` secret, and pre-provision the `ticketing-secrets`
+Kubernetes Secret from a trusted secret manager. Dispatch CD with `deploy=true`; the workflow applies
+infrastructure manifests, injects immutable image tags and waits for both rollouts. With no cluster
+secret configured, image publishing still runs while deployment remains skipped.
+
+## GitLab pipeline
+
+`.gitlab-ci.yml` provides equivalent application quality, audit, Terraform and container-build gates.
+Mutation and k6 load tests are resource-serialized manual/scheduled jobs so they produce evidence without
+saturating a developer laptop. Deployment jobs use protected CI variables and environments; secrets are
+never stored in repository manifests.

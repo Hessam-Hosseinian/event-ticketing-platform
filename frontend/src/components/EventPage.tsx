@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { CalendarDays, ChevronLeft, MapPin, ShieldCheck } from "lucide-react";
-import { api, type EventDetail } from "../api";
+import { api, type EventDetail, type Reservation, type WaitingRoomEntry } from "../api";
 import { useAuth } from "../auth";
 import Notice from "./Notice";
 
@@ -12,11 +12,20 @@ function EventPage() {
   const [event, setEvent] = useState<EventDetail | null>(null),
     [selected, setSelected] = useState<string[]>([]),
     [phase, setPhase] = useState<"view" | "waiting" | "reserving">("view"),
+    [queuePosition, setQueuePosition] = useState<number | null>(null),
     [error, setError] = useState("");
   useEffect(() => {
-    api<EventDetail>(`/events/${id}`)
-      .then(setEvent)
-      .catch((e) => setError(e.message));
+    let active = true;
+    const refresh = () => api<EventDetail>(`/events/${id}`)
+      .then((result) => {
+        if (!active) return;
+        setEvent(result);
+        setSelected((current) => current.filter((seatId) => result.inventory.some((seat) => seat.id === seatId && seat.state === "AVAILABLE")));
+      })
+      .catch((caught) => { if (active) setError((caught as Error).message); });
+    void refresh();
+    const timer = window.setInterval(refresh, 10_000);
+    return () => { active = false; window.clearInterval(timer); };
   }, [id]);
   const chosen = useMemo(
       () => event?.inventory.filter((x) => selected.includes(x.id)) ?? [],
@@ -37,26 +46,26 @@ function EventPage() {
     setError("");
     setPhase("waiting");
     try {
-      const admission = await api<{
-        admissionToken?: string;
-        position: number;
-      }>(
+      let admission = await api<WaitingRoomEntry>(
         `/waiting-room/${id}/join`,
-        { method: "POST", body: JSON.stringify({ userId: session.email }) },
+        { method: "POST" },
         session.token
       );
-      if (!admission.admissionToken)
-        throw new Error(
-          `نفر ${admission.position.toLocaleString(
-            "fa-IR"
-          )} صف هستید؛ چند ثانیه دیگر تلاش کنید.`
-        );
+      setQueuePosition(admission.position);
+      for (let attempt = 0; admission.state === "QUEUED" && attempt < 60; attempt += 1) {
+        await new Promise((resolve) => window.setTimeout(resolve, Math.min(5000, 1500 + attempt * 100)));
+        admission = await api<WaitingRoomEntry>(`/waiting-room/${admission.id}`, {}, session.token);
+        setQueuePosition(admission.position);
+      }
+      if (admission.state !== "ADMITTED" || !admission.admissionToken) {
+        throw new Error("زمان انتظار طولانی شد؛ جایگاه شما حفظ شده و می‌توانید دوباره وضعیت را بررسی کنید.");
+      }
       setPhase("reserving");
-      const reservation = await api<{ id: string; expiresAt: string }>(
+      const reservation = await api<Reservation>(
         "/reservations",
         {
           method: "POST",
-          body: JSON.stringify({ eventId: id, seatIds: selected }),
+          body: JSON.stringify({ eventId: id, seatIds: selected, admissionToken: admission.admissionToken }),
         },
         session.token
       );
@@ -66,13 +75,14 @@ function EventPage() {
           ...reservation,
           eventTitle: event?.title,
           seats: chosen,
-          total,
+          total: Number(reservation.totalAmount || total),
         })
       );
       navigate(`/checkout/${reservation.id}`);
     } catch (e) {
       setError((e as Error).message);
       setPhase("view");
+      setQueuePosition(null);
     }
   }
   if (!event)
@@ -103,6 +113,9 @@ function EventPage() {
       <div className="booking-layout">
         <div>
           {error && <Notice text={error} />}
+          {phase === "waiting" && queuePosition !== null && (
+            <Notice kind="success" text={`جایگاه شما در صف: ${queuePosition.toLocaleString("fa-IR")}. وضعیت خودکار بررسی می‌شود.`} />
+          )}
           <div className="map-card">
             <div className="stage">
               <span>صحنه</span>
@@ -131,6 +144,9 @@ function EventPage() {
                         key={seat.id}
                         disabled={seat.state !== "AVAILABLE"}
                         onClick={() => toggle(seat.id)}
+                        aria-pressed={selected.includes(seat.id)}
+                        aria-label={`ردیف ${seat.row}، صندلی ${seat.number}، ${seat.state === "AVAILABLE" ? "آزاد" : "غیرقابل انتخاب"}${seat.accessible ? "، دسترس‌پذیر" : ""}`}
+                        title={`${Number(seat.price).toLocaleString("fa-IR")} ${seat.currency}`}
                         className={
                           selected.includes(seat.id)
                             ? "chosen"
@@ -192,7 +208,7 @@ function EventPage() {
               : "ادامه و پرداخت"}
             <ChevronLeft />
           </button>
-          <small className="secure">
+          <small className="secure" aria-live="polite">
             <ShieldCheck />
             صندلی‌ها پس از رزرو ۱۰ دقیقه قفل می‌شوند.
           </small>

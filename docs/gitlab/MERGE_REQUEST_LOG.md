@@ -2,9 +2,11 @@
 
 | Remote | Source → target | Owner | Actual evidence | Status |
 |---|---|---|---|---|
-| GitHub | `docs/software-engineering-deliverables-v2` → `main` | Shared; focused commits by Hessam/Pourya | [PR #2 — complete software engineering deliverables and UML](https://github.com/Hessam-Hosseinian/event-ticketing-platform/pull/2) | Open; 10 commits; no repository checks reported at creation |
+| GitHub | `docs/software-engineering-deliverables-v2` → `main` | Shared; focused commits by Hessam/Pourya | [PR #2 — complete software engineering deliverables and UML](https://github.com/Hessam-Hosseinian/event-ticketing-platform/pull/2) | Merged 2026-07-18 as `166113c` |
 | GitLab | `docs/software-engineering-deliverables-v2` | Shared | branch pushed; server returned MR creation page, but no MR was created/claimed | Branch only |
-| GitHub + GitLab | `feature/backend-production-hardening-v2` | Hessam | branch `57a5908` pushed to preserve deferred work | No PR/MR by deliberate scope decision |
+| GitHub | `feature/backend-production-hardening-v2` → `main` | Hessam | [PR #3 — harden ticketing domain workflows](https://github.com/Hessam-Hosseinian/event-ticketing-platform/pull/3) | Merged 2026-07-18 as `d478bf5` |
+| GitLab | `feature/frontend-platform-integration-v2` → `main` | Pourya/Hessam | [MR !1 — complete platform implementation](https://gitlab.chabokan.net/hessamh/event-ticketing-platform/-/merge_requests/1) | Open; focused application/platform commits; pipeline pending |
+| GitHub | `feature/frontend-platform-integration-v2` → `main` | Pourya/Hessam | [PR #4 — complete platform implementation](https://github.com/Hessam-Hosseinian/event-ticketing-platform/pull/4) | Open; GitHub Actions checks pending |
 
 ## Review still required
 

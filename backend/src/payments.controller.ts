@@ -48,7 +48,7 @@ export class PaymentsController {
         amount: reservation.totalAmount,
         currency: reservation.currency,
       }));
-      this.updates.emit('payment.started', payment);
+      this.updates.emitUser(request.user.sub, 'payment.started', payment);
       this.broker.publish('payment.started', { ...payment, userId: request.user.sub });
       return payment;
     } catch (error) {
@@ -62,14 +62,17 @@ export class PaymentsController {
     const result = await this.dataSource.transaction((manager) => this.completeTransaction(manager, id, request.user.sub, body));
     await this.locks.release(result.reservation.eventId, result.seatIds, result.reservation.id);
     const eventName = result.payment.state === PaymentState.SUCCESS ? 'payment.succeeded' : 'payment.failed';
-    this.updates.emit(eventName, result.payment);
+    this.updates.emitUser(result.reservation.userId, eventName, result.payment);
     this.updates.emitEvent(result.reservation.eventId, 'seat.status.changed', {
       eventId: result.reservation.eventId,
       seatIds: result.seatIds,
       state: result.payment.state === PaymentState.SUCCESS ? 'BOOKED' : 'AVAILABLE',
     });
     this.broker.publish(eventName, { ...result.payment, userId: result.reservation.userId });
-    if (result.tickets.length) this.broker.publish('ticket.issued', { tickets: result.tickets, userId: result.reservation.userId });
+    if (result.tickets.length) {
+      this.updates.emitUser(result.reservation.userId, 'ticket.issued', { ticketIds: result.tickets.map((ticket) => ticket.id) });
+      this.broker.publish('ticket.issued', { tickets: result.tickets, userId: result.reservation.userId });
+    }
     return { payment: result.payment, reservation: result.reservation, tickets: result.tickets };
   }
 

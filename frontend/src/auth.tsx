@@ -8,8 +8,10 @@ import {
 import type { Role } from "./api";
 interface Session {
   token: string;
+  id: string;
   role: Role;
   email: string;
+  name: string;
 }
 interface AuthContextValue {
   session: Session | null;
@@ -18,15 +20,25 @@ interface AuthContextValue {
 }
 const AuthContext = createContext<AuthContextValue | null>(null),
   storageKey = "narm-session";
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(() => {
-    try {
-      const raw = localStorage.getItem(storageKey);
-      return raw ? JSON.parse(raw) : null;
-    } catch {
+
+function readSession(): Session | null {
+  try {
+    const raw = localStorage.getItem(storageKey);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<Session>;
+    if (!parsed.token || !parsed.id || !parsed.email || !parsed.role) {
+      localStorage.removeItem(storageKey);
       return null;
     }
-  });
+    return { ...parsed, name: parsed.name ?? "" } as Session;
+  } catch {
+    localStorage.removeItem(storageKey);
+    return null;
+  }
+}
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [session, setSession] = useState<Session | null>(readSession);
   const value = useMemo(
     () => ({
       session,

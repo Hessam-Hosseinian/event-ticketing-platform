@@ -6,7 +6,7 @@ import {
   TicketCheck,
   Sparkles,
 } from "lucide-react";
-import { api, ApiError, type EventSummary } from "../api";
+import { api, ApiError, type EventSummary, type Paginated } from "../api";
 import EventCard from "./EventCard";
 import Notice from "./Notice";
 
@@ -15,6 +15,11 @@ function Home() {
     [query, setQuery] = useState(""),
     [genre, setGenre] = useState(""),
     [city, setCity] = useState(""),
+    [from, setFrom] = useState(""),
+    [available, setAvailable] = useState(false),
+    [page, setPage] = useState(1),
+    [pages, setPages] = useState(1),
+    [total, setTotal] = useState(0),
     [loading, setLoading] = useState(true),
     [error, setError] = useState("");
   useEffect(() => {
@@ -24,13 +29,26 @@ function Home() {
       if (query) p.set("q", query);
       if (genre) p.set("genre", genre);
       if (city) p.set("city", city);
-      api<EventSummary[]>(`/events?${p}`)
-        .then(setEvents)
+      if (from) p.set("from", new Date(`${from}T00:00:00`).toISOString());
+      if (available) p.set("available", "true");
+      p.set("page", String(page));
+      p.set("limit", "12");
+      setError("");
+      api<Paginated<EventSummary>>(`/events?${p}`)
+        .then((result) => {
+          setEvents(result.items);
+          setPages(Math.max(1, result.pages));
+          setTotal(result.total);
+        })
         .catch((e: ApiError) => setError(e.message))
         .finally(() => setLoading(false));
     }, 250);
     return () => clearTimeout(timer);
-  }, [query, genre, city]);
+  }, [query, genre, city, from, available, page]);
+
+  function resetPage() {
+    setPage(1);
+  }
   return (
     <>
       <section className="hero">
@@ -51,13 +69,13 @@ function Home() {
           <Search />
           <input
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => { setQuery(e.target.value); resetPage(); }}
             placeholder="جست‌وجوی نام رویداد..."
           />
           <select
             id="genre-select"
             value={genre}
-            onChange={(e) => setGenre(e.target.value)}
+            onChange={(e) => { setGenre(e.target.value); resetPage(); }}
           >
             <option value="">همه دسته‌ها</option>
             <option value="Music">موسیقی</option>
@@ -69,9 +87,24 @@ function Home() {
             id="city-filter"
             className="city-filter"
             value={city}
-            onChange={(e) => setCity(e.target.value)}
+            onChange={(e) => { setCity(e.target.value); resetPage(); }}
             placeholder="شهر"
           />
+          <input
+            aria-label="از تاریخ"
+            className="date-filter"
+            type="date"
+            value={from}
+            onChange={(e) => { setFrom(e.target.value); resetPage(); }}
+          />
+          <label className="availability-filter">
+            <input
+              type="checkbox"
+              checked={available}
+              onChange={(e) => { setAvailable(e.target.checked); resetPage(); }}
+            />
+            فقط دارای ظرفیت
+          </label>
         </div>
         <div className="trust-row">
           <span>
@@ -94,7 +127,7 @@ function Home() {
             <span>انتخاب‌های این هفته</span>
             <h2>رویدادهای پیش رو</h2>
           </div>
-          <b>{events.length.toLocaleString("fa-IR")} رویداد</b>
+          <b>{total.toLocaleString("fa-IR")} رویداد</b>
         </div>
         {error && <Notice text={error} />}{" "}
         {loading ? (
@@ -108,6 +141,13 @@ function Home() {
         )}
         {!loading && !events.length && (
           <div className="empty">رویدادی با این مشخصات پیدا نشد.</div>
+        )}
+        {!loading && pages > 1 && (
+          <nav className="pagination" aria-label="صفحه‌بندی رویدادها">
+            <button disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>قبلی</button>
+            <span>صفحه {page.toLocaleString("fa-IR")} از {pages.toLocaleString("fa-IR")}</span>
+            <button disabled={page >= pages} onClick={() => setPage((value) => value + 1)}>بعدی</button>
+          </nav>
         )}
       </section>
     </>

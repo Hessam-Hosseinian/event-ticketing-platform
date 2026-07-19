@@ -8,23 +8,28 @@ function Layout({ children }: { children: React.ReactNode }) {
   const { session, signOut } = useAuth();
   const [live, setLive] = useState("");
   useEffect(() => {
-    const socket = io(import.meta.env.VITE_WS_URL ?? "http://localhost:3000");
+    if (!session) return;
+    const socket = io(import.meta.env.VITE_WS_URL ?? window.location.origin, {
+      auth: { token: session.token },
+    });
+    let toastTimer: number | undefined;
     [
-      "reservation.created",
       "payment.started",
+      "payment.succeeded",
       "payment.failed",
       "ticket.issued",
-      "seat.status.changed",
     ].forEach((name) =>
       socket.on(name, () => {
         setLive(name);
-        setTimeout(() => setLive(""), 3500);
+        window.clearTimeout(toastTimer);
+        toastTimer = window.setTimeout(() => setLive(""), 3500);
       })
     );
     return () => {
+      window.clearTimeout(toastTimer);
       socket.close();
     };
-  }, []);
+  }, [session]);
   return (
     <div className="shell">
       <header>
@@ -44,9 +49,9 @@ function Layout({ children }: { children: React.ReactNode }) {
             <>
               <span className="user-pill">
                 <CircleUserRound size={24} />
-                {session.email}
+                {session.name || session.email}
               </span>
-              <button className="icon-button" title="خروج" onClick={signOut}>
+              <button className="icon-button" title="خروج" aria-label="خروج از حساب" onClick={signOut}>
                 <LogOut size={19} />
               </button>
             </>

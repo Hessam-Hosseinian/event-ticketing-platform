@@ -1,31 +1,31 @@
-Key,Issue Type,Summary,Epic Link,Parent,Sprint,Assignee,Reporter,Status,Priority,Story Points,Labels
-E1,Epic,Identity and Trust,,,1,Hessam,Pourya,Done,Highest,,identity
-E2,Epic,Catalog and Venue Lifecycle,,,1,Hessam,Pourya,In Review,Highest,,catalog
-E3,Epic,Distributed Reservation Engine,,,2,Hessam,Pourya,In Review,Highest,,reservation
-E4,Epic,Reliable Checkout and Ticketing,,,2,Hessam,Pourya,In Review,Highest,,billing
-E5,Epic,Buyer and Organizer Experience,,,2,Pourya,Hessam,In Review,High,,frontend
-E6,Epic,Messaging and Realtime,,,3,Hessam,Pourya,Prototype,High,,messaging
-E7,Epic,Fair Traffic Resilience,,,3,Hessam,Pourya,In Review,Highest,,waiting-room
-E8,Epic,Quality Delivery and Operations,,,3,Pourya,Hessam,In Progress,Highest,,quality
-US-01,Story,Secure authentication token lifecycle,E1,,1,Hessam,Pourya,Done,Highest,5,security
-US-02,Story,RBAC and resource ownership,E1,,1,Hessam,Pourya,In Review,Highest,5,security
-US-03,Story,Venue sector row and seat layout,E2,,1,Hessam,Pourya,Done,Highest,8,catalog
-US-04,Story,Event schedule pricing and publication,E2,,1,Hessam,Pourya,In Review,Highest,8,catalog
-US-05,Story,Search filter and discovery experience,E2,,1,Pourya,Hessam,In Review,High,8,frontend
-US-06,Story,Fair waiting room and admission token,E7,,3,Hessam,Pourya,In Review,Highest,8,resilience
-US-07,Story,Atomic TTL seat reservation,E3,,2,Hessam,Pourya,In Review,Highest,13,concurrency
-US-08,Story,Durable oversell invariant and proof,E3,,2,Hessam,Pourya,In Review,Highest,8,concurrency
-US-09,Story,Idempotent payment workflow,E4,,2,Hessam,Pourya,In Review,Highest,8,payment
-US-10,Story,Saga compensation and reconciliation,E4,,2,Hessam,Pourya,In Review,Highest,13,payment
-US-11,Story,QR issuance verification and check-in,E4,,2,Pourya,Hessam,In Review,High,8,ticket
-US-12,Story,Scoped realtime status and reconnect,E6,,3,Pourya,Hessam,Prototype,High,5,realtime
-US-13,Story,Async notification retry and DLX,E6,,3,Hessam,Pourya,Prototype,High,8,messaging
-US-14,Story,Organizer sales analytics projection,E5,,3,Pourya,Hessam,Prototype,Medium,8,analytics
-US-15,Story,Health telemetry SLO and alert mapping,E8,,3,Hessam,Pourya,Designed,High,8,observability
-US-16,Story,Automated CI quality and security gates,E8,,3,Pourya,Hessam,In Review,Highest,8,ci
-US-17,Story,Incident framework and exercises,E8,,3,Hessam,Pourya,In Progress,High,5,incident
-US-18,Story,Reproducible traceable submission,E8,,3,Pourya,Hessam,In Progress,Highest,8,submission
-QA-01,Task,Run one-seat contention and invariant query,,US-08,2,Pourya,Hessam,Ready,Highest,3,test
-QA-02,Task,Run payment mutation suite,,US-10,2,Pourya,Hessam,Ready,High,3,mutation
-OPS-01,Task,Execute payment outage tabletop,,US-17,3,Hessam,Pourya,Ready,High,2,incident
-OPS-02,Task,Execute queue worker failure tabletop,,US-17,3,Pourya,Hessam,Ready,High,2,incident
+"Key","Issue Type","Summary","Epic Link","Parent","Sprint","Assignee","Reporter","Status","Priority","Story Points","Labels"
+"E1","Epic","Identity and Trust",,,"1","Hessam","Pourya","Done","Highest",,"identity"
+"E2","Epic","Catalog and Venue Lifecycle",,,"1","Hessam","Pourya","In Review","Highest",,"catalog"
+"E3","Epic","Distributed Reservation Engine",,,"2","Hessam","Pourya","In Review","Highest",,"reservation"
+"E4","Epic","Reliable Checkout and Ticketing",,,"2","Hessam","Pourya","In Review","Highest",,"billing"
+"E5","Epic","Buyer and Organizer Experience",,,"2","Pourya","Hessam","In Review","High",,"frontend"
+"E6","Epic","Messaging and Realtime",,,"3","Hessam","Pourya","Prototype","High",,"messaging"
+"E7","Epic","Fair Traffic Resilience",,,"3","Hessam","Pourya","In Review","Highest",,"waiting-room"
+"E8","Epic","Quality Delivery and Operations",,,"3","Pourya","Hessam","In Progress","Highest",,"quality"
+"US-01","Story","Secure authentication token lifecycle","E1",,"1","Hessam","Pourya","Done","Highest","5","security"
+"US-02","Story","RBAC and resource ownership","E1",,"1","Hessam","Pourya","In Review","Highest","5","security"
+"US-03","Story","Venue sector row and seat layout","E2",,"1","Hessam","Pourya","Done","Highest","8","catalog"
+"US-04","Story","Event schedule pricing and publication","E2",,"1","Hessam","Pourya","In Review","Highest","8","catalog"
+"US-05","Story","Search filter and discovery experience","E2",,"1","Pourya","Hessam","In Review","High","8","frontend"
+"US-06","Story","Fair waiting room and admission token","E7",,"3","Hessam","Pourya","In Review","Highest","8","resilience"
+"US-07","Story","Atomic TTL seat reservation","E3",,"2","Hessam","Pourya","In Review","Highest","13","concurrency"
+"US-08","Story","Durable oversell invariant and proof","E3",,"2","Hessam","Pourya","In Review","Highest","8","concurrency"
+"US-09","Story","Idempotent payment workflow","E4",,"2","Hessam","Pourya","In Review","Highest","8","payment"
+"US-10","Story","Saga compensation and reconciliation","E4",,"2","Hessam","Pourya","In Review","Highest","13","payment"
+"US-11","Story","QR issuance verification and check-in","E4",,"2","Pourya","Hessam","In Review","High","8","ticket"
+"US-12","Story","Scoped realtime status and reconnect","E6",,"3","Pourya","Hessam","Prototype","High","5","realtime"
+"US-13","Story","Async notification retry and DLX","E6",,"3","Hessam","Pourya","Prototype","High","8","messaging"
+"US-14","Story","Organizer sales analytics projection","E5",,"3","Pourya","Hessam","Prototype","Medium","8","analytics"
+"US-15","Story","Health telemetry SLO and alert mapping","E8",,"3","Hessam","Pourya","Designed","High","8","observability"
+"US-16","Story","Automated CI quality and security gates","E8",,"3","Pourya","Hessam","In Review","Highest","8","ci"
+"US-17","Story","Incident framework and exercises","E8",,"3","Hessam","Pourya","In Progress","High","5","incident"
+"US-18","Story","Reproducible traceable submission","E8",,"3","Pourya","Hessam","In Progress","Highest","8","submission"
+"QA-01","Task","Run one-seat contention and invariant query","E3","US-08","2","Pourya","Hessam","Ready","Highest","3","test"
+"QA-02","Task","Run payment mutation suite","E4","US-10","2","Pourya","Hessam","Ready","High","3","mutation"
+"OPS-01","Task","Execute payment outage tabletop","E8","US-17","3","Hessam","Pourya","Ready","High","2","incident"
+"OPS-02","Task","Execute queue worker failure tabletop","E8","US-17","3","Pourya","Hessam","Ready","High","2","incident"

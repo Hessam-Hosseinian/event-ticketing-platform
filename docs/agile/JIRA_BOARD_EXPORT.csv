@@ -1,31 +1,31 @@
-"Key","Issue Type","Summary","Epic Link","Parent","Sprint","Assignee","Reporter","Status","Priority","Story Points","Labels"
-"E1","Epic","Identity and Trust",,,"1","Hessam","Pourya","Done","Highest",,"identity"
-"E2","Epic","Catalog and Venue Lifecycle",,,"1","Hessam","Pourya","In Review","Highest",,"catalog"
-"E3","Epic","Distributed Reservation Engine",,,"2","Hessam","Pourya","In Review","Highest",,"reservation"
-"E4","Epic","Reliable Checkout and Ticketing",,,"2","Hessam","Pourya","In Review","Highest",,"billing"
-"E5","Epic","Buyer and Organizer Experience",,,"2","Pourya","Hessam","In Review","High",,"frontend"
-"E6","Epic","Messaging and Realtime",,,"3","Hessam","Pourya","Prototype","High",,"messaging"
-"E7","Epic","Fair Traffic Resilience",,,"3","Hessam","Pourya","In Review","Highest",,"waiting-room"
-"E8","Epic","Quality Delivery and Operations",,,"3","Pourya","Hessam","In Progress","Highest",,"quality"
-"US-01","Story","Secure authentication token lifecycle","E1",,"1","Hessam","Pourya","Done","Highest","5","security"
-"US-02","Story","RBAC and resource ownership","E1",,"1","Hessam","Pourya","In Review","Highest","5","security"
-"US-03","Story","Venue sector row and seat layout","E2",,"1","Hessam","Pourya","Done","Highest","8","catalog"
-"US-04","Story","Event schedule pricing and publication","E2",,"1","Hessam","Pourya","In Review","Highest","8","catalog"
-"US-05","Story","Search filter and discovery experience","E2",,"1","Pourya","Hessam","In Review","High","8","frontend"
-"US-06","Story","Fair waiting room and admission token","E7",,"3","Hessam","Pourya","In Review","Highest","8","resilience"
-"US-07","Story","Atomic TTL seat reservation","E3",,"2","Hessam","Pourya","In Review","Highest","13","concurrency"
-"US-08","Story","Durable oversell invariant and proof","E3",,"2","Hessam","Pourya","In Review","Highest","8","concurrency"
-"US-09","Story","Idempotent payment workflow","E4",,"2","Hessam","Pourya","In Review","Highest","8","payment"
-"US-10","Story","Saga compensation and reconciliation","E4",,"2","Hessam","Pourya","In Review","Highest","13","payment"
-"US-11","Story","QR issuance verification and check-in","E4",,"2","Pourya","Hessam","In Review","High","8","ticket"
-"US-12","Story","Scoped realtime status and reconnect","E6",,"3","Pourya","Hessam","Prototype","High","5","realtime"
-"US-13","Story","Async notification retry and DLX","E6",,"3","Hessam","Pourya","Prototype","High","8","messaging"
-"US-14","Story","Organizer sales analytics projection","E5",,"3","Pourya","Hessam","Prototype","Medium","8","analytics"
-"US-15","Story","Health telemetry SLO and alert mapping","E8",,"3","Hessam","Pourya","Designed","High","8","observability"
-"US-16","Story","Automated CI quality and security gates","E8",,"3","Pourya","Hessam","In Review","Highest","8","ci"
-"US-17","Story","Incident framework and exercises","E8",,"3","Hessam","Pourya","In Progress","High","5","incident"
-"US-18","Story","Reproducible traceable submission","E8",,"3","Pourya","Hessam","In Progress","Highest","8","submission"
-"QA-01","Task","Run one-seat contention and invariant query","E3","US-08","2","Pourya","Hessam","Ready","Highest","3","test"
-"QA-02","Task","Run payment mutation suite","E4","US-10","2","Pourya","Hessam","Ready","High","3","mutation"
-"OPS-01","Task","Execute payment outage tabletop","E8","US-17","3","Hessam","Pourya","Ready","High","2","incident"
-"OPS-02","Task","Execute queue worker failure tabletop","E8","US-17","3","Pourya","Hessam","Ready","High","2","incident"
+Work item ID,Work type,Summary,Parent,Status,Priority,Story points,Labels,Labels,Sprint
+1,Epic,"Identity and Trust",,Done,Highest,,identity,e1,
+2,Epic,"Catalog and Venue Lifecycle",,To Do,Highest,,catalog,e2,
+3,Epic,"Distributed Reservation Engine",,To Do,Highest,,reservation,e3,
+4,Epic,"Reliable Checkout and Ticketing",,To Do,Highest,,billing,e4,
+5,Epic,"Buyer and Organizer Experience",,To Do,High,,frontend,e5,
+6,Epic,"Messaging and Realtime",,To Do,High,,messaging,e6,
+7,Epic,"Fair Traffic Resilience",,To Do,Highest,,waiting-room,e7,
+8,Epic,"Quality Delivery and Operations",,In Progress,Highest,,quality,e8,
+9,Story,"Secure authentication token lifecycle",1,Done,Highest,5,security,us-01,"Sprint 1"
+10,Story,"RBAC and resource ownership",1,To Do,Highest,5,security,us-02,"Sprint 1"
+11,Story,"Venue sector row and seat layout",2,Done,Highest,8,catalog,us-03,"Sprint 1"
+12,Story,"Event schedule pricing and publication",2,To Do,Highest,8,catalog,us-04,"Sprint 1"
+13,Story,"Search filter and discovery experience",2,To Do,High,8,frontend,us-05,"Sprint 1"
+14,Story,"Fair waiting room and admission token",7,To Do,Highest,8,resilience,us-06,"Sprint 3"
+15,Story,"Atomic TTL seat reservation",3,To Do,Highest,13,concurrency,us-07,"Sprint 2"
+16,Story,"Durable oversell invariant and proof",3,To Do,Highest,8,concurrency,us-08,"Sprint 2"
+17,Story,"Idempotent payment workflow",4,To Do,Highest,8,payment,us-09,"Sprint 2"
+18,Story,"Saga compensation and reconciliation",4,To Do,Highest,13,payment,us-10,"Sprint 2"
+19,Story,"QR issuance verification and check-in",4,To Do,High,8,ticket,us-11,"Sprint 2"
+20,Story,"Scoped realtime status and reconnect",6,To Do,High,5,realtime,us-12,"Sprint 3"
+21,Story,"Async notification retry and DLX",6,To Do,Highest,8,messaging,us-13,"Sprint 3"
+22,Story,"Organizer sales analytics projection",5,To Do,Medium,8,analytics,us-14,"Sprint 3"
+23,Story,"Health telemetry SLO and alert mapping",8,To Do,High,8,observability,us-15,"Sprint 3"
+24,Story,"Automated CI quality and security gates",8,To Do,Highest,8,ci,us-16,"Sprint 3"
+25,Story,"Incident framework and exercises",8,In Progress,High,5,incident,us-17,"Sprint 3"
+26,Story,"Reproducible traceable submission",8,In Progress,Highest,8,submission,us-18,"Sprint 3"
+27,Subtask,"Run one-seat contention and invariant query",16,To Do,Highest,,test,qa-01,
+28,Subtask,"Run payment mutation suite",18,To Do,High,,mutation,qa-02,
+29,Subtask,"Execute payment outage tabletop",25,To Do,High,,incident,ops-01,
+30,Subtask,"Execute queue worker failure tabletop",25,To Do,High,,incident,ops-02,

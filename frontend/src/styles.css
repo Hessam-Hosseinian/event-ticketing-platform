@@ -961,6 +961,110 @@ option {
 .manage-form .button {
   justify-self: start;
 }
+.persian-date-picker {
+  width: 100%;
+  min-width: 0;
+  position: relative;
+}
+.persian-date-picker > div,
+.persian-date-picker .rmdp-container {
+  width: 100%;
+}
+.persian-date-trigger {
+  width: 100%;
+  min-height: 41px;
+  border: 1px solid #2b3449;
+  background: #0b0f19;
+  color: #fff;
+  padding: 9px 11px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: right;
+}
+.persian-date-trigger:hover,
+.persian-date-trigger:focus-visible {
+  border-color: var(--lime);
+  outline: none;
+}
+.persian-date-trigger .placeholder {
+  color: #777d8d;
+}
+.persian-date-trigger svg {
+  width: 18px;
+  height: 18px;
+  color: var(--lime);
+  flex: 0 0 auto;
+}
+.persian-date-clear {
+  position: absolute;
+  left: 36px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 7px;
+  background: #1a2030;
+  color: #9ca3b4;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  z-index: 2;
+}
+.persian-date-clear svg {
+  width: 14px;
+  height: 14px;
+}
+.narm-persian-calendar,
+.narm-persian-calendar .rmdp-wrapper {
+  direction: rtl;
+  font-family: Vazirmatn, sans-serif;
+  background: #111725;
+  color: #edf0f7;
+  border-color: #303a51;
+}
+.narm-persian-calendar .rmdp-header-values,
+.narm-persian-calendar .rmdp-day span,
+.narm-persian-calendar .rmdp-time-picker input {
+  color: #edf0f7;
+}
+.narm-persian-calendar .rmdp-week-day {
+  color: var(--lime);
+}
+.narm-persian-calendar .rmdp-day.rmdp-today span {
+  background: #333d1d;
+  color: var(--lime);
+}
+.narm-persian-calendar .rmdp-day.rmdp-selected span,
+.narm-persian-calendar .rmdp-day:not(.rmdp-disabled):not(.rmdp-day-hidden) span:hover,
+.narm-persian-calendar .rmdp-arrow-container:hover {
+  background: var(--lime) !important;
+  color: #10130a !important;
+}
+.narm-persian-calendar .rmdp-arrow {
+  border-color: var(--lime);
+}
+.narm-persian-calendar .rmdp-time-picker,
+.narm-persian-calendar .rmdp-time-picker div input,
+.narm-persian-calendar .rmdp-action-button {
+  background: #111725;
+  color: var(--lime);
+}
+.search-box .persian-date-picker.date-filter {
+  max-width: 155px;
+  flex: 0 0 155px;
+}
+.search-box .persian-date-trigger {
+  min-height: 38px;
+  border: 0;
+  background: #151b28;
+  font-size: 12px;
+}
 .analytics-picker {
   max-width: 430px;
   margin: 0 0 20px;

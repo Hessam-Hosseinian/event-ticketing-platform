@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { api, type AuthResponse } from "../api";
 import { useAuth } from "../auth";
 import Notice from "./Notice";
@@ -11,9 +11,12 @@ function Login() {
     [password, setPassword] = useState("Password123!"),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(false);
-  const { session, signIn } = useAuth(), navigate = useNavigate();
+  const { session, signIn } = useAuth(), navigate = useNavigate(), location = useLocation();
+  const navigation = location.state as { returnTo?: string; resumeReservation?: boolean } | null;
+  const returnTo = navigation?.returnTo?.startsWith("/") && !navigation.returnTo.startsWith("//") ? navigation.returnTo : "/";
+  const resumeState = navigation?.resumeReservation ? { resumeReservation: true } : null;
 
-  if (session) return <Navigate to="/" />;
+  if (session) return <Navigate to={returnTo} replace state={resumeState} />;
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -37,7 +40,7 @@ function Login() {
         email: result.user.email,
         name: result.user.name,
       });
-      navigate("/");
+      navigate(returnTo, { replace: true, state: resumeState });
     } catch (caught) {
       setError((caught as Error).message);
     } finally {

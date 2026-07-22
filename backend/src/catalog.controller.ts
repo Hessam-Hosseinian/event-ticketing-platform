@@ -71,7 +71,9 @@ export class EventsController {
 
   @Get()
   async list(@Query() query: EventQueryDto) {
-    const builder = this.events.createQueryBuilder('event').where('event.published = true');
+    const builder = this.events.createQueryBuilder('event')
+      .where('event.published = true')
+      .andWhere('event.startsAt > :now', { now: new Date() });
     if (query.q) builder.andWhere(new Brackets((q) => q.where('event.title ILIKE :term').orWhere('event.description ILIKE :term').orWhere('event.tags ILIKE :term')), { term: `%${query.q}%` });
     if (query.genre) builder.andWhere('event.genre = :genre', { genre: query.genre });
     if (query.city) builder.andWhere('event.city = :city', { city: query.city });
@@ -102,7 +104,7 @@ export class EventsController {
 
   @Get(':id')
   async detail(@Param('id') id: string) {
-    const event = await this.events.findOneBy({ id });
+    const event = await this.events.findOneBy({ id, published: true });
     if (!event) throw new NotFoundException('رویداد پیدا نشد');
     const venue = await this.venues.findOneByOrFail({ id: event.venueId });
     const sectors = await this.sectors.findBy({ venueId: event.venueId });
@@ -125,7 +127,16 @@ export class EventsController {
         currency: price?.currency ?? 'IRR',
       };
     });
-    return { ...event, venue, sectors, pricing, availability: inventory.filter((seat) => seat.state === SeatState.AVAILABLE).length, inventory };
+    const bookable = event.startsAt > new Date();
+    return {
+      ...event,
+      venue,
+      sectors,
+      pricing,
+      bookable,
+      availability: bookable ? inventory.filter((seat) => seat.state === SeatState.AVAILABLE).length : 0,
+      inventory,
+    };
   }
 
   @Post()

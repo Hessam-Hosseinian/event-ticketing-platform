@@ -51,6 +51,7 @@ export interface InventorySeat {
 
 export interface EventDetail extends EventSummary {
   published: boolean;
+  bookable: boolean;
   venue: { id: string; name: string; city: string; address: string };
   availability: number;
   inventory: InventorySeat[];

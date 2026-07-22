@@ -9,13 +9,14 @@ import {
 import { api, ApiError, type EventSummary, type Paginated } from "../api";
 import EventCard from "./EventCard";
 import Notice from "./Notice";
+import PersianDatePicker from "./PersianDatePicker";
 
 function Home() {
   const [events, setEvents] = useState<EventSummary[]>([]),
     [query, setQuery] = useState(""),
     [genre, setGenre] = useState(""),
     [city, setCity] = useState(""),
-    [from, setFrom] = useState(""),
+    [from, setFrom] = useState<Date | null>(null),
     [available, setAvailable] = useState(false),
     [page, setPage] = useState(1),
     [pages, setPages] = useState(1),
@@ -31,7 +32,7 @@ function Home() {
       if (query) p.set("q", query);
       if (genre) p.set("genre", genre);
       if (city) p.set("city", city);
-      if (from) p.set("from", new Date(`${from}T00:00:00`).toISOString());
+      if (from) p.set("from", from.toISOString());
       if (available) p.set("available", "true");
       p.set("page", String(page));
       p.set("limit", "12");
@@ -97,12 +98,25 @@ function Home() {
             onChange={(e) => { setCity(e.target.value); resetPage(); }}
             placeholder="شهر"
           />
-          <input
-            aria-label="از تاریخ"
+          <PersianDatePicker
             className="date-filter"
-            type="date"
             value={from}
-            onChange={(e) => { setFrom(e.target.value); resetPage(); }}
+            onChange={(value) => {
+              if (!value) {
+                setFrom(null);
+                resetPage();
+                return;
+              }
+
+              const startOfDay = new Date(value);
+              startOfDay.setHours(0, 0, 0, 0);
+              setFrom(startOfDay);
+              resetPage();
+            }}
+            placeholder="از تاریخ"
+            ariaLabel="انتخاب تاریخ شمسی شروع"
+            minDate={new Date()}
+            clearable
           />
           <label className="availability-filter">
             <input

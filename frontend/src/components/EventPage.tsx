@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams, Link } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate, useParams, Link } from "react-router-dom";
 import { CalendarDays, ChevronLeft, MapPin, ShieldCheck } from "lucide-react";
 import { api, type EventDetail, type Reservation, type WaitingRoomEntry } from "../api";
 import { useAuth } from "../auth";
@@ -8,7 +8,9 @@ import Notice from "./Notice";
 function EventPage() {
   const { id } = useParams(),
     { session } = useAuth(),
-    navigate = useNavigate();
+    navigate = useNavigate(),
+    location = useLocation(),
+    resumed = useRef(false);
   const [event, setEvent] = useState<EventDetail | null>(null),
     [selected, setSelected] = useState<string[]>([]),
     [phase, setPhase] = useState<"view" | "waiting" | "reserving">("view"),
@@ -39,6 +41,26 @@ function EventPage() {
       window.clearTimeout(timer);
     };
   }, [id]);
+
+  useEffect(() => {
+    if (!session || !event || resumed.current || !(location.state as { resumeReservation?: boolean } | null)?.resumeReservation) return;
+    resumed.current = true;
+    navigate(location.pathname, { replace: true, state: null });
+    try {
+      const pending = JSON.parse(sessionStorage.getItem("narm-pending-reservation") ?? "null") as { eventId?: string; seatIds?: string[] } | null;
+      if (!pending || pending.eventId !== id || !Array.isArray(pending.seatIds)) return;
+      const available = pending.seatIds.filter((seatId) => event.inventory.some((seat) => seat.id === seatId && seat.state === "AVAILABLE"));
+      if (!available.length) {
+        setError("صندلی‌های انتخاب‌شده در این فاصله رزرو شده‌اند؛ لطفاً دوباره انتخاب کنید.");
+        sessionStorage.removeItem("narm-pending-reservation");
+        return;
+      }
+      setSelected(available);
+      void reserve(available);
+    } catch {
+      setError("ادامه رزرو قبلی ممکن نبود؛ لطفاً صندلی‌ها را دوباره انتخاب کنید.");
+    }
+  }, [event, id, location.pathname, location.state, navigate, session]);
   const chosen = useMemo(
       () => event?.inventory.filter((x) => selected.includes(x.id)) ?? [],
       [event, selected]
@@ -53,8 +75,11 @@ function EventPage() {
         : current
     );
   }
-  async function reserve() {
-    if (!session) return navigate("/login");
+  async function reserve(seatIds = selected) {
+    if (!session) {
+      try { sessionStorage.setItem("narm-pending-reservation", JSON.stringify({ eventId: id, seatIds })); } catch { /* navigation state still preserves the return path */ }
+      return navigate("/login", { state: { returnTo: `/events/${id}`, resumeReservation: true } });
+    }
     setError("");
     setPhase("waiting");
     try {
@@ -77,7 +102,7 @@ function EventPage() {
         "/reservations",
         {
           method: "POST",
-          body: JSON.stringify({ eventId: id, seatIds: selected, admissionToken: admission.admissionToken }),
+          body: JSON.stringify({ eventId: id, seatIds, admissionToken: admission.admissionToken }),
         },
         session.token
       );
@@ -86,10 +111,11 @@ function EventPage() {
         JSON.stringify({
           ...reservation,
           eventTitle: event?.title,
-          seats: chosen,
+          seats: event?.inventory.filter((seat) => seatIds.includes(seat.id)) ?? [],
           total: Number(reservation.totalAmount || total),
         })
       );
+      try { sessionStorage.removeItem("narm-pending-reservation"); } catch { /* storage may be unavailable */ }
       navigate(`/checkout/${reservation.id}`);
     } catch (e) {
       setError((e as Error).message);
@@ -125,6 +151,7 @@ function EventPage() {
       <div className="booking-layout">
         <div>
           {error && <Notice text={error} />}
+          {!event.bookable && <Notice text="زمان این رویداد گذشته و دیگر قابل رزرو نیست." />}
           {phase === "waiting" && queuePosition !== null && (
             <Notice kind="success" text={`جایگاه شما در صف: ${queuePosition.toLocaleString("fa-IR")}. وضعیت خودکار بررسی می‌شود.`} />
           )}
@@ -210,8 +237,8 @@ function EventPage() {
           </div>
           <button
             className="button wide"
-            disabled={!selected.length || phase !== "view"}
-            onClick={reserve}
+            disabled={!event.bookable || !selected.length || phase !== "view"}
+            onClick={() => void reserve()}
           >
             {phase === "waiting"
               ? "ورود به صف…"

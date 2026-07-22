@@ -16,16 +16,28 @@ function EventPage() {
     [error, setError] = useState("");
   useEffect(() => {
     let active = true;
-    const refresh = () => api<EventDetail>(`/events/${id}`)
-      .then((result) => {
+    let timer: number | undefined;
+    let controller: AbortController | undefined;
+    const refresh = async () => {
+      controller = new AbortController();
+      try {
+        const result = await api<EventDetail>(`/events/${id}`, { signal: controller.signal });
         if (!active) return;
         setEvent(result);
+        setError("");
         setSelected((current) => current.filter((seatId) => result.inventory.some((seat) => seat.id === seatId && seat.state === "AVAILABLE")));
-      })
-      .catch((caught) => { if (active) setError((caught as Error).message); });
+      } catch (caught) {
+        if (active) setError((caught as Error).message);
+      } finally {
+        if (active) timer = window.setTimeout(() => void refresh(), 10_000);
+      }
+    };
     void refresh();
-    const timer = window.setInterval(refresh, 10_000);
-    return () => { active = false; window.clearInterval(timer); };
+    return () => {
+      active = false;
+      controller?.abort();
+      window.clearTimeout(timer);
+    };
   }, [id]);
   const chosen = useMemo(
       () => event?.inventory.filter((x) => selected.includes(x.id)) ?? [],

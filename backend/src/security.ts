@@ -20,7 +20,9 @@ export class AuthGuard implements CanActivate {
     const header = request.headers.authorization;
     if (!header?.startsWith('Bearer ')) throw new UnauthorizedException('Bearer token is required');
     try {
-      request.user = this.jwt.verify<AuthenticatedUser>(header.slice(7));
+      const user = this.jwt.verify<AuthenticatedUser>(header.slice(7));
+      if (!user.sub || !user.email || !Object.values(Role).includes(user.role)) throw new Error('Invalid claims');
+      request.user = user;
     } catch {
       throw new UnauthorizedException('Token is invalid or expired');
     }

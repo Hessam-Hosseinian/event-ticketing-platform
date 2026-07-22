@@ -1,4 +1,4 @@
-import { Body, ConflictException, Controller, ForbiddenException, Get, Injectable, OnApplicationShutdown, OnModuleInit, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, ConflictException, Controller, ForbiddenException, Get, Injectable, Logger, NotFoundException, OnApplicationShutdown, OnModuleInit, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'crypto';
 import { DataSource, In, Repository } from 'typeorm';
@@ -13,6 +13,8 @@ import { WaitingRoomService } from './waiting-room.controller';
 @Controller('reservations')
 @UseGuards(AuthGuard)
 export class ReservationsController {
+  private readonly logger = new Logger(ReservationsController.name);
+
   constructor(
     private readonly dataSource: DataSource,
     @InjectRepository(Reservation) private readonly reservations: Repository<Reservation>,
@@ -71,7 +73,11 @@ export class ReservationsController {
       this.broker.publish('reservation.created', { ...reservation, userId: request.user.sub });
       return reservation;
     } catch (error) {
-      await this.locks.release(event.id, body.seatIds, id);
+      try {
+        await this.locks.release(event.id, body.seatIds, id);
+      } catch (releaseError) {
+        this.logger.warn(`Reservation ${id} failed and its Redis locks could not be released: ${String(releaseError)}`);
+      }
       if (String(error).includes('duplicate key')) throw new ConflictException('At least one selected seat is unavailable');
       throw error;
     }
@@ -80,23 +86,29 @@ export class ReservationsController {
   @Get(':id')
   async get(@Req() request: { user: AuthenticatedUser }, @Param('id') id: string) {
     const reservation = await this.reservations.findOneBy({ id });
-    if (!reservation) return null;
+    if (!reservation) throw new NotFoundException('Reservation not found');
     this.assertOwner(reservation, request.user);
     return { ...reservation, seats: await this.reservationSeats.findBy({ reservationId: id }) };
   }
 
   @Post(':id/cancel')
   async cancel(@Req() request: { user: AuthenticatedUser }, @Param('id') id: string) {
-    const reservation = await this.reservations.findOneByOrFail({ id });
-    this.assertOwner(reservation, request.user);
-    if (reservation.state !== ReservationState.PENDING) throw new ConflictException('Only pending reservations can be cancelled');
-    const seats = await this.reservationSeats.findBy({ reservationId: id });
-    await this.dataSource.transaction(async (manager) => {
+    const { reservation, seats } = await this.dataSource.transaction(async (manager) => {
+      const reservation = await manager.getRepository(Reservation).findOne({ where: { id }, lock: { mode: 'pessimistic_write' } });
+      if (!reservation) throw new NotFoundException('Reservation not found');
+      this.assertOwner(reservation, request.user);
+      if (reservation.state !== ReservationState.PENDING) throw new ConflictException('Only pending reservations can be cancelled');
+      const seats = await manager.getRepository(ReservationSeat).findBy({ reservationId: id });
       reservation.state = ReservationState.CANCELLED;
       await manager.getRepository(Reservation).save(reservation);
       await manager.getRepository(ReservationSeat).remove(seats);
+      return { reservation, seats };
     });
-    await this.locks.release(reservation.eventId, seats.map((seat) => seat.seatId), reservation.id);
+    try {
+      await this.locks.release(reservation.eventId, seats.map((seat) => seat.seatId), reservation.id);
+    } catch (error) {
+      this.logger.warn(`Reservation ${reservation.id} cancelled but its Redis locks could not be released: ${String(error)}`);
+    }
     this.updates.emitEvent(reservation.eventId, 'seat.status.changed', { eventId: reservation.eventId, seatIds: seats.map((seat) => seat.seatId), state: SeatState.AVAILABLE });
     this.broker.publish('reservation.cancelled', { ...reservation, userId: reservation.userId });
     return reservation;
@@ -109,7 +121,9 @@ export class ReservationsController {
 
 @Injectable()
 export class ExpiryService implements OnModuleInit, OnApplicationShutdown {
+  private readonly logger = new Logger(ExpiryService.name);
   private timer?: NodeJS.Timeout;
+  private running = false;
 
   constructor(
     private readonly dataSource: DataSource,
@@ -121,7 +135,7 @@ export class ExpiryService implements OnModuleInit, OnApplicationShutdown {
   ) {}
 
   onModuleInit(): void {
-    this.timer = setInterval(() => void this.expire(), Number(process.env.EXPIRY_SWEEP_MS ?? 30000));
+    this.timer = setInterval(() => void this.runSweep(), Number(process.env.EXPIRY_SWEEP_MS ?? 30000));
     this.timer.unref();
   }
 
@@ -133,16 +147,36 @@ export class ExpiryService implements OnModuleInit, OnApplicationShutdown {
       .andWhere('reservation.expiresAt <= :now', { now: new Date() })
       .take(100)
       .getMany();
+    let expired = 0;
     for (const reservation of stale) {
       const seats = await this.seats.findBy({ reservationId: reservation.id });
-      await this.dataSource.transaction(async (manager) => {
+      const changed = await this.dataSource.transaction(async (manager) => {
         const result = await manager.getRepository(Reservation).update({ id: reservation.id, state: ReservationState.PENDING }, { state: ReservationState.EXPIRED });
         if (result.affected) await manager.getRepository(ReservationSeat).remove(seats);
+        return Boolean(result.affected);
       });
-      await this.locks.release(reservation.eventId, seats.map((seat) => seat.seatId), reservation.id);
+      if (!changed) continue;
+      expired += 1;
+      try {
+        await this.locks.release(reservation.eventId, seats.map((seat) => seat.seatId), reservation.id);
+      } catch (error) {
+        this.logger.warn(`Failed to release Redis locks for expired reservation ${reservation.id}: ${String(error)}`);
+      }
       this.updates.emitEvent(reservation.eventId, 'seat.status.changed', { eventId: reservation.eventId, seatIds: seats.map((seat) => seat.seatId), state: SeatState.AVAILABLE });
       this.broker.publish('reservation.expired', { ...reservation, userId: reservation.userId });
     }
-    return stale.length;
+    return expired;
+  }
+
+  private async runSweep(): Promise<void> {
+    if (this.running) return;
+    this.running = true;
+    try {
+      await this.expire();
+    } catch (error) {
+      this.logger.error(`Reservation expiry sweep failed: ${String(error)}`, error instanceof Error ? error.stack : undefined);
+    } finally {
+      this.running = false;
+    }
   }
 }

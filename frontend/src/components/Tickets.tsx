@@ -12,19 +12,26 @@ function Tickets() {
   useEffect(() => {
     if (!session) return;
     let active = true;
+    const controller = new AbortController();
     const load = async () => {
       setLoading(true);
       setError("");
       try {
-        const remote = await api<StoredTicket[]>("/tickets", {}, session.token);
-        const enriched: StoredTicket[] = [];
-        for (const ticket of remote) {
-          const qr = await api<{ qrDataUrl: string }>(`/tickets/${ticket.id}/qr`, {}, session.token);
-          enriched.push({ ...ticket, qrDataUrl: qr.qrDataUrl });
-        }
+        const remote = await api<StoredTicket[]>("/tickets", { signal: controller.signal }, session.token);
+        let qrFailures = 0;
+        const enriched = await Promise.all(remote.map(async (ticket): Promise<StoredTicket> => {
+          try {
+            const qr = await api<{ qrDataUrl: string }>(`/tickets/${ticket.id}/qr`, { signal: controller.signal }, session.token);
+            return { ...ticket, qrDataUrl: qr.qrDataUrl };
+          } catch {
+            qrFailures += 1;
+            return ticket;
+          }
+        }));
         if (active) {
           setTickets(enriched);
-          localStorage.setItem(`narm-tickets-${session.id}`, JSON.stringify(enriched));
+          if (qrFailures) setError(`کد QR تعداد ${qrFailures.toLocaleString("fa-IR")} بلیت موقتاً دریافت نشد؛ اطلاعات بلیت‌ها محفوظ است.`);
+          try { localStorage.setItem(`narm-tickets-${session.id}`, JSON.stringify(enriched)); } catch { /* online data is still available */ }
         }
       } catch (caught) {
         if (!active) return;
@@ -39,14 +46,14 @@ function Tickets() {
       }
     };
     void load();
-    return () => { active = false; };
+    return () => { active = false; controller.abort(); };
   }, [session]);
 
   if (!session) return <Navigate to="/login" />;
   return (
     <section className="section tickets-page">
       <div className="section-title"><div><span>کیف بلیت</span><h2>بلیت‌های من</h2></div></div>
-      {error && <Notice text={`${error} — نسخه ذخیره‌شده نمایش داده می‌شود.`} />}
+      {error && <Notice text={error} />}
       {loading ? <div className="loader">در حال همگام‌سازی بلیت‌ها…</div> : !tickets.length ? (
         <div className="empty">هنوز بلیتی صادر نشده است. <Link to="/">مشاهده رویدادها</Link></div>
       ) : (

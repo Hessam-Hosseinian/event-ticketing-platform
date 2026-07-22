@@ -23,28 +23,38 @@ function Manage() {
 
   useEffect(() => {
     if (!session || session.role === "CUSTOMER") return;
+    let active = true;
+    const controller = new AbortController();
     const load = async () => {
       try {
         const [venueResult, eventResult] = await Promise.all([
-          api<Venue[]>("/venues"),
-          api<EventSummary[]>("/events/mine", {}, session.token),
+          api<Venue[]>("/venues", { signal: controller.signal }),
+          api<EventSummary[]>("/events/mine", { signal: controller.signal }, session.token),
         ]);
+        if (!active) return;
         setVenues(venueResult);
         setEvents(eventResult);
         setSelectedEvent(eventResult[0]?.id ?? "");
-        if (session.role === "ADMIN") setUsers(await api<UserSummary[]>("/users", {}, session.token));
+        if (session.role === "ADMIN") {
+          const result = await api<UserSummary[]>("/users", { signal: controller.signal }, session.token);
+          if (active) setUsers(result);
+        }
       } catch (caught) {
-        setError((caught as Error).message);
+        if (active) setError((caught as Error).message);
       }
     };
     void load();
+    return () => { active = false; controller.abort(); };
   }, [session]);
 
   useEffect(() => {
     if (!session || !selectedEvent) { setAnalytics(null); return; }
-    api<EventAnalytics>(`/events/${selectedEvent}/analytics`, {}, session.token)
-      .then(setAnalytics)
-      .catch((caught) => setError((caught as Error).message));
+    let active = true;
+    const controller = new AbortController();
+    api<EventAnalytics>(`/events/${selectedEvent}/analytics`, { signal: controller.signal }, session.token)
+      .then((result) => { if (active) setAnalytics(result); })
+      .catch((caught) => { if (active) setError((caught as Error).message); });
+    return () => { active = false; controller.abort(); };
   }, [selectedEvent, session]);
 
   if (!session) return <Navigate to="/login" />;

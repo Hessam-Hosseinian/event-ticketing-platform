@@ -25,6 +25,7 @@ export class BrokerService implements OnModuleInit, OnApplicationShutdown {
     try {
       this.connection = await connect(process.env.RABBITMQ_URL ?? 'amqp://localhost');
       this.connection.on('error', () => { this.healthy = false; });
+      this.connection.on('close', () => { this.healthy = false; this.channel = undefined; });
       this.channel = await this.connection.createChannel();
       await this.channel.assertExchange('ticketing.events', 'topic', { durable: true });
       const queue = await this.channel.assertQueue('ticketing.notifications', {
@@ -77,15 +78,21 @@ export class BrokerService implements OnModuleInit, OnApplicationShutdown {
       payload,
     };
     const body = Buffer.from(JSON.stringify(event));
-    if (this.channel) this.channel.publish('ticketing.events', type, body, { persistent: true, contentType: 'application/json' });
-    else this.logger.log(`Domain event ${type}: ${body.toString()}`);
+    try {
+      if (this.channel) this.channel.publish('ticketing.events', type, body, { persistent: true, contentType: 'application/json' });
+      else this.logger.log(`Domain event ${type}: ${body.toString()}`);
+    } catch (error) {
+      this.healthy = false;
+      this.logger.warn(`Domain event ${type} could not be published: ${String(error)}`);
+    }
     return event;
   }
 
   isHealthy(): boolean { return this.healthy; }
 
   async onApplicationShutdown(): Promise<void> {
-    await this.channel?.close();
-    await this.connection?.close();
+    this.healthy = false;
+    try { await this.channel?.close(); } catch { /* connection may already be closed */ }
+    try { await this.connection?.close(); } catch { /* connection may already be closed */ }
   }
 }

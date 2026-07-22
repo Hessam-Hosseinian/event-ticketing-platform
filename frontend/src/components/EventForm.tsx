@@ -6,22 +6,31 @@ export default function EventForm({ token, venues, done }: { token: string; venu
   const [venueId, setVenueId] = useState(""), [title, setTitle] = useState(""), [description, setDescription] = useState(""),
     [genre, setGenre] = useState("Music"), [city, setCity] = useState(""), [startsAt, setStartsAt] = useState(""),
     [price, setPrice] = useState(2_500_000), [tags, setTags] = useState(""), [error, setError] = useState(""),
-    [loading, setLoading] = useState(false);
+    [loading, setLoading] = useState(false), [draft, setDraft] = useState<EventSummary | null>(null),
+    [pricingReady, setPricingReady] = useState(false);
   async function submit(formEvent: FormEvent) {
     formEvent.preventDefault();
     setLoading(true); setError("");
     try {
-      const event = await api<EventSummary>("/events", {
-        method: "POST",
-        body: JSON.stringify({
-          venueId, title, description, genre, city,
-          startsAt: new Date(startsAt).toISOString(),
-          tags: tags.split(",").map((tag) => tag.trim()).filter(Boolean),
-        }),
-      }, token);
-      await api(`/events/${event.id}/pricing`, { method: "POST", body: JSON.stringify({ name: "استاندارد", price, currency: "IRR" }) }, token);
+      let event = draft;
+      if (!event) {
+        event = await api<EventSummary>("/events", {
+          method: "POST",
+          body: JSON.stringify({
+            venueId, title, description, genre, city,
+            startsAt: new Date(startsAt).toISOString(),
+            tags: tags.split(",").map((tag) => tag.trim()).filter(Boolean),
+          }),
+        }, token);
+        setDraft(event);
+      }
+      if (!pricingReady) {
+        await api(`/events/${event.id}/pricing`, { method: "POST", body: JSON.stringify({ name: "استاندارد", price, currency: "IRR" }) }, token);
+        setPricingReady(true);
+      }
       await api(`/events/${event.id}/publish`, { method: "POST" }, token);
       done(event);
+      setDraft(null); setPricingReady(false);
       setTitle(""); setDescription(""); setStartsAt(""); setTags("");
     } catch (caught) {
       setError((caught as Error).message);

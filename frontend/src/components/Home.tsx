@@ -23,6 +23,8 @@ function Home() {
     [loading, setLoading] = useState(true),
     [error, setError] = useState("");
   useEffect(() => {
+    let active = true;
+    const controller = new AbortController();
     setLoading(true);
     const timer = setTimeout(() => {
       const p = new URLSearchParams();
@@ -34,16 +36,21 @@ function Home() {
       p.set("page", String(page));
       p.set("limit", "12");
       setError("");
-      api<Paginated<EventSummary>>(`/events?${p}`)
+      api<Paginated<EventSummary>>(`/events?${p}`, { signal: controller.signal })
         .then((result) => {
+          if (!active) return;
           setEvents(result.items);
           setPages(Math.max(1, result.pages));
           setTotal(result.total);
         })
-        .catch((e: ApiError) => setError(e.message))
-        .finally(() => setLoading(false));
+        .catch((e: ApiError) => { if (active) setError(e.message); })
+        .finally(() => { if (active) setLoading(false); });
     }, 250);
-    return () => clearTimeout(timer);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [query, genre, city, from, available, page]);
 
   function resetPage() {

@@ -1,4 +1,4 @@
-import { Body, ConflictException, Controller, ForbiddenException, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, ConflictException, Controller, ForbiddenException, Logger, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHash, randomBytes } from 'crypto';
 import { DataSource, EntityManager, Repository } from 'typeorm';
@@ -15,11 +15,14 @@ interface PaymentResult {
   reservation: Reservation;
   tickets: Ticket[];
   seatIds: string[];
+  transitioned: boolean;
 }
 
 @Controller('payments')
 @UseGuards(AuthGuard)
 export class PaymentsController {
+  private readonly logger = new Logger(PaymentsController.name);
+
   constructor(
     private readonly dataSource: DataSource,
     @InjectRepository(Payment) private readonly payments: Repository<Payment>,
@@ -60,7 +63,14 @@ export class PaymentsController {
   @Post(':id/complete')
   async complete(@Req() request: { user: AuthenticatedUser }, @Param('id') id: string, @Body() body: CompletePaymentDto) {
     const result = await this.dataSource.transaction((manager) => this.completeTransaction(manager, id, request.user.sub, body));
-    await this.locks.release(result.reservation.eventId, result.seatIds, result.reservation.id);
+    if (!result.transitioned) {
+      return { payment: result.payment, reservation: result.reservation, tickets: result.tickets };
+    }
+    try {
+      await this.locks.release(result.reservation.eventId, result.seatIds, result.reservation.id);
+    } catch (error) {
+      this.logger.warn(`Payment ${result.payment.id} committed but its Redis locks could not be released: ${String(error)}`);
+    }
     const eventName = result.payment.state === PaymentState.SUCCESS ? 'payment.succeeded' : 'payment.failed';
     this.updates.emitUser(result.reservation.userId, eventName, result.payment);
     this.updates.emitEvent(result.reservation.eventId, 'seat.status.changed', {
@@ -85,7 +95,13 @@ export class PaymentsController {
     const seats = await manager.getRepository(ReservationSeat).findBy({ reservationId: reservation.id });
     const ticketRepository = manager.getRepository(Ticket);
     if (payment.state !== PaymentState.PENDING) {
-      return { payment, reservation, tickets: await ticketRepository.findBy({ reservationId: reservation.id }), seatIds: seats.map((seat) => seat.seatId) };
+      return {
+        payment,
+        reservation,
+        tickets: await ticketRepository.findBy({ reservationId: reservation.id }),
+        seatIds: seats.map((seat) => seat.seatId),
+        transitioned: false,
+      };
     }
     const transition = determinePaymentTransition(body.outcome, reservation.expiresAt <= new Date());
     let tickets: Ticket[] = [];
@@ -113,6 +129,6 @@ export class PaymentsController {
     }
     await manager.getRepository(Reservation).save(reservation);
     await manager.getRepository(Payment).save(payment);
-    return { payment, reservation, tickets, seatIds: seats.map((seat) => seat.seatId) };
+    return { payment, reservation, tickets, seatIds: seats.map((seat) => seat.seatId), transitioned: true };
   }
 }

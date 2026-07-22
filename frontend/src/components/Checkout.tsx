@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import {
   api,
@@ -34,16 +34,35 @@ function Checkout() {
     [loading, setLoading] = useState(false),
     [terminal, setTerminal] = useState(false),
     [error, setError] = useState(""),
-    [now, setNow] = useState(Date.now());
-  const reservation = useMemo(readReservation, []);
+    [now, setNow] = useState(Date.now()),
+    [reservation, setReservation] = useState<StoredReservation | null>(readReservation),
+    [checkingReservation, setCheckingReservation] = useState(true);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    if (!session || !reservationId) { setCheckingReservation(false); return; }
+    if (reservation?.id === reservationId) { setCheckingReservation(false); return; }
+    let active = true;
+    const controller = new AbortController();
+    api<StoredReservation>(`/reservations/${reservationId}`, { signal: controller.signal }, session.token)
+      .then((result) => { if (active) setReservation(result); })
+      .catch((caught) => { if (active) setError((caught as Error).message); })
+      .finally(() => { if (active) setCheckingReservation(false); });
+    return () => { active = false; controller.abort(); };
+  }, [reservation?.id, reservationId, session]);
+
   if (!session) return <Navigate to="/login" />;
-  if (!reservation || reservation.id !== reservationId) return <Navigate to="/" />;
+  if (checkingReservation) return <div className="loader">در حال بازیابی رزرو…</div>;
+  if (!reservation || reservation.id !== reservationId) return (
+    <section className="checkout-page"><div className="payment-card">
+      <Notice text={error || "رزرو موردنظر پیدا نشد یا دیگر قابل پرداخت نیست."} />
+      <button className="button wide" onClick={() => navigate("/")}>بازگشت به رویدادها</button>
+    </div></section>
+  );
   const activeSession = session;
   const activeReservation = reservation;
 
@@ -70,17 +89,23 @@ function Checkout() {
         activeSession.token,
       );
       if (result.payment.state === "SUCCESS") {
-        const stored: StoredTicket[] = [];
-        for (const ticket of result.tickets) {
-          const qr = await api<{ ticketId: string; qrDataUrl: string }>(`/tickets/${ticket.id}/qr`, {}, activeSession.token);
+        setTerminal(true);
+        const stored = await Promise.all(result.tickets.map(async (ticket): Promise<StoredTicket> => {
           const seat = activeReservation.seats?.find((candidate) => candidate.id === ticket.seatId);
-          stored.push({
+          let qrDataUrl: string | undefined;
+          try {
+            const qr = await api<{ ticketId: string; qrDataUrl: string }>(`/tickets/${ticket.id}/qr`, {}, activeSession.token);
+            qrDataUrl = qr.qrDataUrl;
+          } catch {
+            // The ticket is already issued; the wallet page can retry loading its QR code.
+          }
+          return {
             ...ticket,
-            qrDataUrl: qr.qrDataUrl,
+            qrDataUrl,
             eventTitle: activeReservation.eventTitle,
             seatLabel: seat ? `ردیف ${seat.row}، صندلی ${seat.number}` : undefined,
-          });
-        }
+          };
+        }));
         const walletKey = `narm-tickets-${activeSession.id}`;
         let existing: StoredTicket[] = [];
         try {
@@ -89,8 +114,8 @@ function Checkout() {
           existing = [];
         }
         const merged = [...existing.filter((ticket) => !stored.some((next) => next.id === ticket.id)), ...stored];
-        localStorage.setItem(walletKey, JSON.stringify(merged));
-        sessionStorage.removeItem("narm-reservation");
+        try { localStorage.setItem(walletKey, JSON.stringify(merged)); } catch { /* server remains the source of truth */ }
+        try { sessionStorage.removeItem("narm-reservation"); } catch { /* storage may be unavailable */ }
         navigate("/tickets");
         return;
       }
@@ -111,10 +136,11 @@ function Checkout() {
     setError("");
     try {
       await api(`/reservations/${reservationId}/cancel`, { method: "POST" }, activeSession.token);
-      sessionStorage.removeItem("narm-reservation");
+      try { sessionStorage.removeItem("narm-reservation"); } catch { /* storage may be unavailable */ }
       navigate(`/events/${activeReservation.eventId}`);
     } catch (caught) {
       setError((caught as Error).message);
+    } finally {
       setLoading(false);
     }
   }

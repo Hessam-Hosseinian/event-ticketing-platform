@@ -1,4 +1,4 @@
-import { Body, Controller, ForbiddenException, Get, NotFoundException, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, ForbiddenException, Get, NotFoundException, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, DataSource, In, Repository } from 'typeorm';
 import { CreateEventDto, CreatePricingDto, CreateSectorDto, CreateVenueDto, EventQueryDto, UpdateEventDto } from './dto';
@@ -135,7 +135,7 @@ export class EventsController {
     await this.venues.findOneByOrFail({ id: body.venueId });
     const startsAt = new Date(body.startsAt);
     const endsAt = body.endsAt ? new Date(body.endsAt) : undefined;
-    if (startsAt <= new Date() || (endsAt && endsAt <= startsAt)) throw new ForbiddenException('Event times are invalid');
+    validateEventTimes(startsAt, endsAt, true);
     return this.events.save(this.events.create({ ...body, startsAt, endsAt, tags: body.tags ?? [], organizerId: request.user.sub, published: false }));
   }
 
@@ -144,9 +144,12 @@ export class EventsController {
   @Roles(Role.ORGANIZER, Role.ADMIN)
   async update(@Req() request: { user: AuthenticatedUser }, @Param('id') id: string, @Body() body: UpdateEventDto) {
     const event = await this.ownedEvent(id, request.user);
+    const startsAt = body.startsAt ? new Date(body.startsAt) : event.startsAt;
+    const endsAt = body.endsAt ? new Date(body.endsAt) : event.endsAt;
+    validateEventTimes(startsAt, endsAt, Boolean(body.startsAt));
     Object.assign(event, body, {
-      ...(body.startsAt ? { startsAt: new Date(body.startsAt) } : {}),
-      ...(body.endsAt ? { endsAt: new Date(body.endsAt) } : {}),
+      ...(body.startsAt ? { startsAt } : {}),
+      ...(body.endsAt ? { endsAt } : {}),
     });
     return this.events.save(event);
   }
@@ -208,4 +211,13 @@ function rowLabel(index: number): string {
   let label = '';
   for (let value = index + 1; value > 0; value = Math.floor((value - 1) / 26)) label = String.fromCharCode(65 + ((value - 1) % 26)) + label;
   return label;
+}
+
+function validateEventTimes(startsAt: Date, endsAt?: Date, requireFuture = false): void {
+  if (Number.isNaN(startsAt.getTime()) || (endsAt && Number.isNaN(endsAt.getTime()))) {
+    throw new BadRequestException('Event times are invalid');
+  }
+  if ((requireFuture && startsAt <= new Date()) || (endsAt && endsAt <= startsAt)) {
+    throw new BadRequestException('Event times are invalid');
+  }
 }

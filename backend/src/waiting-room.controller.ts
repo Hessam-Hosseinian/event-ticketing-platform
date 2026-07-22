@@ -1,9 +1,9 @@
-import { Body, Controller, ForbiddenException, Get, Injectable, NotFoundException, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, ConflictException, Controller, ForbiddenException, Get, Injectable, NotFoundException, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomBytes } from 'crypto';
 import { Repository } from 'typeorm';
 import { AdmitUsersDto } from './dto';
-import { Role, WaitingRoomEntry, WaitingRoomState } from './entities';
+import { Event, Role, WaitingRoomEntry, WaitingRoomState } from './entities';
 import { RedisService } from './redis.service';
 import { AuthenticatedUser, AuthGuard, Roles } from './security';
 
@@ -24,11 +24,14 @@ export class WaitingRoomService {
 export class WaitingRoomController {
   constructor(
     @InjectRepository(WaitingRoomEntry) private readonly entries: Repository<WaitingRoomEntry>,
+    @InjectRepository(Event) private readonly events: Repository<Event>,
     private readonly redis: RedisService,
   ) {}
 
   @Post(':eventId/join')
   async join(@Req() request: { user: AuthenticatedUser }, @Param('eventId') eventId: string) {
+    const event = await this.events.findOneBy({ id: eventId, published: true });
+    if (!event || event.startsAt <= new Date()) throw new ConflictException('Event is unavailable');
     const active = await this.entries.findOne({
       where: [
         { eventId, userId: request.user.sub, state: WaitingRoomState.QUEUED },

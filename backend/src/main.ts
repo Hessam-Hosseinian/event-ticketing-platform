@@ -3,6 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
+import { ApiExceptionFilter } from './http-exception.filter';
 
 function validateEnvironment(): void {
   if (process.env.NODE_ENV === 'production') {
@@ -23,6 +24,7 @@ async function bootstrap() {
   });
   app.enableShutdownHooks();
   app.setGlobalPrefix('api');
+  app.useGlobalFilters(new ApiExceptionFilter());
   app.useGlobalPipes(new ValidationPipe({
     whitelist: true,
     forbidNonWhitelisted: true,
